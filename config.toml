@@ -8,9 +8,9 @@ theme = "hook"
 
 # Whether to build a search index to be used later on by a JavaScript library
 build_search_index = false
-
-title = "Jun Ouyang's blog"
-description = "Jun Ouyang's blog"
+title = "Jun Ouyang's Blog"
+description = "Jun Ouyang's Blog"
+generate_feed = true
 
 [markdown]
 
@@ -22,9 +22,9 @@ highlight_theme = "agola-dark"
 [extra]
 
 links = [
-    { title = "Github", href = "https://github.com/attenuation" },
+    { title = "Github", href = "https://github.com/oowl" },
     { title = "Email", href = "mailto:ouyangjun1999@gmail.com" },
-    { title = "Twitter", href = "https://twitter.com/blackowl0001" },
+    { title = "RSS", href = "https://blog.stdin.in/atom.xml" },
 
     # ...
 ]
