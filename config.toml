@@ -25,6 +25,7 @@ links = [
     { title = "Github", href = "https://github.com/oowl" },
     { title = "Email", href = "mailto:ouyangjun1999@gmail.com" },
     { title = "RSS", href = "https://blog.stdin.in/atom.xml" },
+    { title = "Twitter", href = "https://twitter.com/blackowl0001" },
 
     # ...
 ]
