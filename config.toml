@@ -26,6 +26,7 @@ links = [
     { title = "Email", href = "mailto:ouyangjun1999@gmail.com" },
     { title = "RSS", href = "https://blog.stdin.in/atom.xml" },
     { title = "Mastodon", href = "https://mastodon.social/@oowl" },
+    { title = "Travel", href = "/travel" },
     # ...
 ]
 # Put all your custom variables here
