@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>https://blog.stdin.in/</loc>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/about/</loc>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/blog/</loc>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/blog/hello-world/</loc>
+        <lastmod>2020-01-26</lastmod>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/blog/how-to-use-apple-map-in-transparent-proxy/</loc>
+        <lastmod>2023-06-04</lastmod>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/blog/nginx-memory-management/</loc>
+        <lastmod>2020-04-11</lastmod>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/blog/nginx-network-io-module/</loc>
+        <lastmod>2023-03-26</lastmod>
+    </url>
+    <url>
+        <loc>https://blog.stdin.in/travel/</loc>
+    </url>
+</urlset>
