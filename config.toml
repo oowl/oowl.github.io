@@ -9,7 +9,7 @@ theme = "hook"
 # Whether to build a search index to be used later on by a JavaScript library
 build_search_index = false
 title = "owl's Blog"
-description = "owl's Blog"
+description = "owl's Blog feedId:66419108743862272+userId:56722589749105664"
 generate_feed = true
 
 [markdown]
