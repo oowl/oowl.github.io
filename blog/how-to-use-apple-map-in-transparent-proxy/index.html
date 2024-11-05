@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="owl&amp;#x27;s Blog feedId:66419108743862272+userId:56722589749105664">
+    <title>owl&#x27;s Blog | 如何在透明代理网络环境下得到正常的苹果地图</title>
+    
+    <link rel="stylesheet" href="https://blog.stdin.in/style.css?h=8b0c8e67741cde488629">
+    
+</head>
+<body>
+    
+<header class="space">
+    <a href="https:&#x2F;&#x2F;blog.stdin.in">&LeftArrow; Home</a>
+</header>
+
+    
+<main>
+    <h1>如何在透明代理网络环境下得到正常的苹果地图</h1>
+    
+    <p class="secondary">4 June, 2023</p>
+    
+    <div class="space"></div>
+    <h1 id="bei-jing">背景</h1>
+<p>是这样的，我家的透明代理策略走的是路由器上配置路由表的策略，这个策略是中国大陆的地址直接走的我家的上游，非中国大陆的地址会被路由到我内网专门的代理机器出去, 剩下的中国大陆地址就会走默认的路由。然后DNS做了分流，非中国大陆的域名会默认走  <code>8.8.8.8</code>进行请求，正好这个 <code>8.8.8.8</code> 的请求正好会被路由匹配到我的代理机器，这样就会所有的非中国域名全部走远程解析并访问了，在不需要的时候直接把路由撤销所有的请求会自动跳转回正常的默认线路，DNS也完全不需要调整（<code>8.8.8.8</code> 正好会被默认路由匹配到）。</p>
+<h1 id="wen-ti">问题</h1>
+<p>上面的方案我在大部分情况下都工作的很好，但是我最近遇到了一个问题：我有两个苹果设备，我很喜欢的一个苹果的APP是苹果地图，它接入了很多地图提供商，比如中国大陆接入的是高德地图，这样一个地图就能保持中国大陆内外的一致性体验了（众所周知，在中国的地图提供商没办法看清楚中国大陆以外的地图，海外的地图提供商没办法看清中国大陆境内的地图）。在我家的分流中，苹果地图没办法使用高德德地图提供商，经过我一顿谷歌搜索和抓包，大致有以下结论：</p>
+<ol>
+<li>v2ex里面提到苹果的  <a href="http://ls.apple.com/"><code>ls.apple.com</code></a> 这个域名是负责苹果地图判断地理位置数据集加载的接口，但是提到的解决方案不适用于我，因为我的代理策略并没有经过TLS Sniffer。</li>
+</ol>
+<p><a href="https://www.v2ex.com/t/682766">使用 ClashX 代理， macOS 地图.app 无法调用高德的数据。需要添加什么规则才可以使用高德数据？ - V2EX</a></p>
+<ol>
+<li>于是我尝试在 Adguard-Home 里面调了下DNS的规则</li>
+</ol>
+<pre style="background-color:#31333d;color:#ffffffc4;"><code><span>[/*.ls.apple.com/]114.114.114.114
+</span></code></pre>
+<p>然后发现根本不起作用，然后我看了下 DNS 的日志，发现苹果的DNS有很多 CNAME 到各个 CDN，这样我们就没办法通过 DNS 规则来指定上游解析了，因为我们并不知道苹果有多少 CNAME，并且这些CNAME什么时候会变。并且我就算匹配到了上游，但是因为很多 CDN 在中国大陆并没有接入点，所以最终的访问还是会走代理，这也有可能会影响苹果服务器的判断。</p>
+<pre style="background-color:#31333d;color:#ffffffc4;"><code><span>➜  ~ (root@archlinux-router) dig gsp-ssl.ls.apple.com @1.1.1.1
+</span><span>
+</span><span>; &lt;&lt;&gt;&gt; DiG 9.18.15 &lt;&lt;&gt;&gt; gsp-ssl.ls.apple.com @1.1.1.1
+</span><span>;; global options: +cmd
+</span><span>;; Got answer:
+</span><span>;; -&gt;&gt;HEADER&lt;&lt;- opcode: QUERY, status: NOERROR, id: 9585
+</span><span>;; flags: qr rd ra; QUERY: 1, ANSWER: 6, AUTHORITY: 0, ADDITIONAL: 1
+</span><span>
+</span><span>;; OPT PSEUDOSECTION:
+</span><span>; EDNS: version: 0, flags:; udp: 1232
+</span><span>;; QUESTION SECTION:
+</span><span>;gsp-ssl.ls.apple.com.		IN	A
+</span><span>
+</span><span>;; ANSWER SECTION:
+</span><span>gsp-ssl.ls.apple.com.	3582	IN	CNAME	gsp-ssl.ls-apple.com.akadns.net.
+</span><span>gsp-ssl.ls-apple.com.akadns.net. 12 IN	CNAME	gsp-ssl-geomap.ls-apple.com.akadns.net.
+</span><span>gsp-ssl-geomap.ls-apple.com.akadns.net.	42 IN CNAME gspx-ssl.ls.apple.com.
+</span><span>gspx-ssl.ls.apple.com.	3582	IN	CNAME	get-bx.g.aaplimg.com.
+</span><span>get-bx.g.aaplimg.com.	12	IN	A	17.253.5.208
+</span><span>get-bx.g.aaplimg.com.	12	IN	A	17.253.17.211
+</span><span>
+</span><span>;; Query time: 129 msec
+</span><span>;; SERVER: 1.1.1.1#53(1.1.1.1) (UDP)
+</span><span>;; WHEN: Sun Jun 04 14:44:12 CST 2023
+</span><span>;; MSG SIZE  rcvd: 209
+</span></code></pre>
+<h1 id="jie-jue-fang-an">解决方案</h1>
+<p>于是乎问题就变成了， 需要在我家的环境下，让访问苹果  <code>*.ls.apple.com</code> 域名的所有请求（包含 DNS 解析）不走任何的代理，咨询了一下朋友们，大致有以下几个方案</p>
+<ol>
+<li>
+<p>写个脚本，手动解析<code>*.ls.apple.com</code>那几个域名的 IP 地址，然后放到 ip rule 或者其他路由表里。</p>
+<p>我并不能枚举所有的 <code>*.ls.apple.com</code> 的域名，而且他们的 CNAME 我更没办法枚举，他们后面的IP地址大概率是CDN的地址，我如果肆意的给这些地址使用特殊规则的话可能会影响我的其他请求访问（比如 Cloudflare 这种全部都是 BGP Anycast IP 的 CDN 厂商，给他的一个IP设置特殊的规则可能会影响到很大比例的网站访问）。</p>
+</li>
+<li>
+<p>使用 DNS 解析结果打 fwmark 的插件，然后给它特定的路由，就是那些人只用域名，不用 IP 列表来分流的方案。</p>
+<p>dnsmasq 支持操作  <a href="https://man.archlinux.org/man/dnsmasq.8.en#ipset=/_domain__/_domain_..._/_ipset__,_ipset_..._">ipset</a> ，这样就可以根据DNS结果来让 iptables 给流量打上标记，然后指定查询路由表，但是这个方案还是有上面一样的问题，CDN不友好。</p>
+</li>
+<li>
+<p>内网搭建个 SNI Proxy, 在路由器上面 hosts 或者 DNS 服务配置里面将目标域名解析到我的的 SNI Proxy 服务上。</p>
+<p>这个方案看起来是可以的，于是我就采用了这个方案。</p>
+</li>
+</ol>
+<p>要实施上面的方案三，大致需要这几个步骤</p>
+<ol>
+<li>
+<p>在内网完全不走任何代理的机器上部署一个SNI Proxy。</p>
+<p>使用 Nginx 的来搭建一个 SNI Proxy 服务器，重定向 80 和 443 的流量到需要的服务地址</p>
+<pre style="background-color:#31333d;color:#ffffffc4;"><code><span>user http;
+</span><span>worker_processes  1;
+</span><span>
+</span><span>error_log   /var/log/nginx/error.log;
+</span><span>
+</span><span>events {
+</span><span>    worker_connections  1024;
+</span><span>}
+</span><span>
+</span><span>http {
+</span><span>    map $host $backend_name {
+</span><span>        default $host;
+</span><span>    }
+</span><span>    resolver 114.114.114.114 ipv6=off;
+</span><span>
+</span><span>    access_log /var/log/nginx/sni_http_access.log;
+</span><span>
+</span><span>    server {
+</span><span>        listen 80;
+</span><span>        location / {
+</span><span>            proxy_pass http://$backend_name;
+</span><span>            proxy_set_header Host $backend_name;
+</span><span>        }
+</span><span>    }
+</span><span>}
+</span><span>
+</span><span>stream {
+</span><span>    map $ssl_preread_server_name $backend_name {
+</span><span>        default $ssl_preread_server_name;
+</span><span>    }
+</span><span>
+</span><span>    resolver 114.114.114.114 ipv6=off;
+</span><span>
+</span><span>    log_format proxy &#39;$remote_addr [$time_local] $ssl_preread_server_name &#39;
+</span><span>               &#39;$protocol $status $bytes_sent $bytes_received &#39;
+</span><span>               &#39;$session_time &quot;$upstream_addr&quot; &#39;
+</span><span>               &#39;&quot;$upstream_bytes_sent&quot; &quot;$upstream_bytes_received&quot; &quot;$upstream_connect_time&quot;&#39;;
+</span><span>    access_log /var/log/nginx/sni_https_access.log proxy;
+</span><span>
+</span><span>    server {
+</span><span>       listen 443;
+</span><span>       ssl_preread on;
+</span><span>       proxy_timeout 5s;
+</span><span>       proxy_pass $backend_name:443;
+</span><span>    }
+</span><span>}
+</span></code></pre>
+<p>在路由器上关掉本机器的透明代理</p>
+<pre data-lang="bash" style="background-color:#31333d;color:#ffffffc4;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-weight:bold;color:#a3cbe3;">ip</span><span> route add default via 10.0.150.254 dev enp3s0 table 8888
+</span><span style="font-weight:bold;color:#a3cbe3;">ip</span><span> rule add from 192.168.233.171 lookup 8888
+</span></code></pre>
+</li>
+<li>
+<p>使用 DNS 转发器的 DNS 重写功能把 <code>*.ls.apple.com</code> 的请求全部重定向到上面那台机器。</p>
+<p>我直接在 Adguard-home 写入如下重定向规则</p>
+<pre style="background-color:#31333d;color:#ffffffc4;"><code><span>*.ls.apple.com 192.168.233.171（
+</span></code></pre>
+</li>
+</ol>
+<p>最后看检查一下日志和苹果设备上的地图，一切按照预期工作正常。</p>
+<pre data-lang="bash" style="background-color:#31333d;color:#ffffffc4;" class="language-bash "><code class="language-bash" data-lang="bash"><span style="font-weight:bold;color:#a3cbe3;">[root@archlinux-tool ~</span><span>]# tail</span><span style="color:#ffffff;"> -f</span><span> /var/log/nginx/sni_https_access.log
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:09:42 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.582 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.34.208.4:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.185</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:09:57 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.569 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.34.208.4:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.180</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:10:36 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4773 598 7.844 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.34.208.4:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>1115</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4773</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.189</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:11:18 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.603 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.34.208.4:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.192</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:12:34 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.051 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.45.60.145:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.034</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:13:38 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.062 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.45.60.145:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.057</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:13:43 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.059 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.45.60.145:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.053</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:15:21 +0000</span><span style="color:#db7c6d;">]</span><span> gsp64-ssl.ls.apple.com TCP 200 3851 1424 1.867 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>17.36.206.7:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>1941</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>3851</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.221</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:16:15 +0000</span><span style="color:#db7c6d;">]</span><span> gspe1-ssl.ls.apple.com TCP 200 4624 339 5.618 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>23.34.208.4:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>856</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>4624</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.197</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span><span style="font-weight:bold;color:#a3cbe3;">192.168.233.193 </span><span style="color:#db7c6d;">[</span><span>04/Jun/2023:07:17:51 +0000</span><span style="color:#db7c6d;">]</span><span> gsp64-ssl.ls.apple.com TCP 200 3853 1114 1.970 </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>17.36.206.8:443</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>1631</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>3853</span><span style="font-weight:bold;color:#dbbb3d;">&quot; &quot;</span><span>0.199</span><span style="font-weight:bold;color:#dbbb3d;">&quot;
+</span></code></pre>
+
+</main>
+
+    <div class="dark-mode-buttons">
+        <button class="dark-mode-button" id="dark-mode-on"><img src="https://blog.stdin.in/dark_mode.svg" width="24" height="24" alt="Dark mode" aria-label="dark mode toggle" title="Dark mode"></button>
+        <button class="dark-mode-button" id="dark-mode-off"><img src="https://blog.stdin.in/light_mode.svg" width="24" height="24" alt="Light mode" aria-label="light mode toggle" title="Light mode"></button>
+    </div>
+    <script>
+        const cls = document.body.classList;
+        const getSessionTheme = sessionStorage.getItem("theme");
+        if (getSessionTheme === "dark") {
+            cls.toggle("dark-mode", true);
+        } else if (getSessionTheme === "light") {
+            cls.toggle("dark-mode", false);
+        } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            cls.toggle("dark-mode", true);
+        }
+
+        document.getElementById("dark-mode-on").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", true);
+            sessionStorage.setItem("theme", "dark");
+        });
+        document.getElementById("dark-mode-off").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", false);
+            sessionStorage.setItem("theme", "light");
+        });
+    </script>
+    <noscript>
+        <style>
+            .dark-mode-buttons {
+                display: none;
+            }
+        </style>
+    </noscript>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "0e8ea8c607c14e63990ea162c2f6c93d"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

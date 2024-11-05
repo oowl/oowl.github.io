@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="owl&amp;#x27;s Blog feedId:66419108743862272+userId:56722589749105664">
+    <title>owl&#x27;s Blog | Nginx Network IO Module</title>
+    
+    <link rel="stylesheet" href="https://blog.stdin.in/style.css?h=8b0c8e67741cde488629">
+    
+</head>
+<body>
+    
+<header class="space">
+    <a href="https:&#x2F;&#x2F;blog.stdin.in">&LeftArrow; Home</a>
+</header>
+
+    
+<main>
+    <h1>Nginx Network IO Module</h1>
+    
+    <p class="secondary">26 March, 2023</p>
+    
+    <div class="space"></div>
+    <p>在网上读过很多Nginx有关的关于网络IO模型的文章，总是感觉很凌乱，再加上最近一位老友密集追问下，重读Nginx源码，才知道自己和中文网络上的文章理解错误了很多东西。</p>
+<p>先说 Nginx 的实现吧，这里只讨论 Linux 环境下的 epoll 网络模型。 先讨论一下 Nginx 是怎么监听并且处理连接的，在Nginx的master进程启动阶段读取所有配置，然后 bind + listen 相应的 socket端口，然后 fork 出来 n 个 worker 子进程，这些子进程会在 epoll 里面注册好这个 fork 出来继承的 listen fd。然后每个 worker 进程都会有一个 event loop 不停的去 epoll_wait 等待新的连接事件，如果是 listen fd 被 epoll_wait 到了，这个时候会尝试 accept 这个 fd 来获得新连接。和上述处理模型有关的有几个相关 Nginx 配置。下面的列表顺序就是时间线。</p>
+<ol>
+<li>
+<p><strong><code>accept_mutex</code></strong> 这个是最老的配置，Nginx 的上述的这套模式，很多 worker 进程的 epoll_wait 同一个listen fd, 这个时候会产生一个经典的“惊群”效应，也就是来了一个新连接的话会唤醒所有的worker的 epoll_wait, 这个时候其实是只有一个 worker 会真正需要处理连接，其他的进程是“一场空”的，这个时候如果连接和worker的数目都很多的话，会导致很多不必要的上下文切换，所以Nginx给出了一个 <strong><code>accept_mutex</code></strong> 选项，在 1.11.3 版本之前，这个选项默认是给开的，逻辑是，开了这个选项的话， Nginx会在多进程内部有个用原子指令实现的多进程的锁，来保证 调用 listen fd 在一个时刻只能被一个worker epoll_wait，这样就能保证只会有一个进程被唤醒，避免了“惊群”问题。</p>
+<pre data-lang="c" style="background-color:#31333d;color:#ffffffc4;" class="language-c "><code class="language-c" data-lang="c"><span>ngx_int_t
+</span><span style="color:#a2ba43;">ngx_trylock_accept_mutex</span><span>(ngx_cycle_t </span><span style="color:#db7c6d;">*</span><span style="color:#ffffff;">cycle</span><span>)
+</span><span>{
+</span><span>    </span><span style="color:#db7c6d;">if </span><span>(</span><span style="font-weight:bold;color:#a3cbe3;">ngx_shmtx_trylock</span><span>(</span><span style="color:#db7c6d;">&amp;</span><span>ngx_accept_mutex)) {
+</span><span>
+</span><span>        </span><span style="font-weight:bold;color:#a3cbe3;">ngx_log_debug0</span><span>(NGX_LOG_DEBUG_EVENT, cycle-&gt;log, </span><span style="color:#db7c6d;">0</span><span>,
+</span><span>                       </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>accept mutex locked</span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>);
+</span><span>
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(ngx_accept_mutex_held </span><span style="color:#db7c6d;">&amp;&amp;</span><span> ngx_accept_events </span><span style="color:#db7c6d;">== 0</span><span>) {
+</span><span>            </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>        }
+</span><span>				</span><span style="color:#707180;">// add listen fd to epoll
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(</span><span style="font-weight:bold;color:#a3cbe3;">ngx_enable_accept_events</span><span>(cycle) </span><span style="color:#db7c6d;">==</span><span> NGX_ERROR) {
+</span><span>            </span><span style="font-weight:bold;color:#a3cbe3;">ngx_shmtx_unlock</span><span>(</span><span style="color:#db7c6d;">&amp;</span><span>ngx_accept_mutex);
+</span><span>            </span><span style="color:#db7c6d;">return</span><span> NGX_ERROR;
+</span><span>        }
+</span><span>
+</span><span>        ngx_accept_events </span><span style="color:#db7c6d;">= 0</span><span>;
+</span><span>        ngx_accept_mutex_held </span><span style="color:#db7c6d;">= 1</span><span>;
+</span><span>
+</span><span>        </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="font-weight:bold;color:#a3cbe3;">ngx_log_debug1</span><span>(NGX_LOG_DEBUG_EVENT, cycle-&gt;log, </span><span style="color:#db7c6d;">0</span><span>,
+</span><span>                   </span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>accept mutex lock failed: </span><span style="font-weight:bold;color:#a2ba43;">%u</span><span>i</span><span style="font-weight:bold;color:#dbbb3d;">&quot;</span><span>, ngx_accept_mutex_held);
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">if </span><span>(ngx_accept_mutex_held) {
+</span><span>				</span><span style="color:#707180;">// delete listen fd to epoll
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(</span><span style="font-weight:bold;color:#a3cbe3;">ngx_disable_accept_events</span><span>(cycle, </span><span style="color:#db7c6d;">0</span><span>) </span><span style="color:#db7c6d;">==</span><span> NGX_ERROR) {
+</span><span>            </span><span style="color:#db7c6d;">return</span><span> NGX_ERROR;
+</span><span>        }
+</span><span>
+</span><span>        ngx_accept_mutex_held </span><span style="color:#db7c6d;">= 0</span><span>;
+</span><span>    }
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>}
+</span></code></pre>
+</li>
+<li>
+<p><code>**reuseport**</code> 时间来到 Linux 3.9 时代，内核引入了全新的一个 socket 选项，这个选项开启了之后，很多个进程可以同时监听一个端口，新连接进来的时候，内核根据“五元组”来hash出来一个连接来具体分配给某个进程，这样其实就也解决了惊群问题了。这里 Nginx 有个非常不常规的实现，一般来说使用 reuseport 的话会在每个进程内自己进行 bind + listen 动作，但是Nginx这里在master进程里一次性监听了 n 个相同端口的fd， 然后所有的 worker 分别 epoll_wait 自己对应的 fd, 所以开了reuseport 之后的 Nginx的 socket状态会看到很多个 master 进程 listen 同一个端口。这个选项在 Nginx 1.9.1 版本中引入，但是并没有成为默认配置。</p>
+<pre data-lang="c" style="background-color:#31333d;color:#ffffffc4;" class="language-c "><code class="language-c" data-lang="c"><span>ngx_int_t
+</span><span style="color:#a2ba43;">ngx_clone_listening</span><span>(ngx_cycle_t </span><span style="color:#db7c6d;">*</span><span style="color:#ffffff;">cycle</span><span>, ngx_listening_t </span><span style="color:#db7c6d;">*</span><span style="color:#ffffff;">ls</span><span>)
+</span><span>{
+</span><span style="color:#db7c6d;">#if</span><span> (NGX_HAVE_REUSEPORT)
+</span><span>
+</span><span>    ngx_int_t         n;
+</span><span>    ngx_core_conf_t  </span><span style="color:#db7c6d;">*</span><span>ccf;
+</span><span>    ngx_listening_t   ols;
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">if </span><span>(</span><span style="color:#db7c6d;">!</span><span>ls-&gt;reuseport </span><span style="color:#db7c6d;">||</span><span> ls-&gt;worker </span><span style="color:#db7c6d;">!= 0</span><span>) {
+</span><span>        </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>    }
+</span><span>
+</span><span>    ols </span><span style="color:#db7c6d;">= *</span><span>ls;
+</span><span>
+</span><span>    ccf </span><span style="color:#db7c6d;">= </span><span>(ngx_core_conf_t </span><span style="color:#db7c6d;">*</span><span>) </span><span style="font-weight:bold;color:#a3cbe3;">ngx_get_conf</span><span>(cycle-&gt;conf_ctx, ngx_core_module);
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">for </span><span>(n </span><span style="color:#db7c6d;">= 1</span><span>; n </span><span style="color:#db7c6d;">&lt;</span><span> ccf-&gt;worker_processes; n</span><span style="color:#db7c6d;">++</span><span>) {
+</span><span>
+</span><span>        </span><span style="color:#707180;">/* create a socket for each worker process */
+</span><span>
+</span><span>        ls </span><span style="color:#db7c6d;">= </span><span style="font-weight:bold;color:#a3cbe3;">ngx_array_push</span><span>(</span><span style="color:#db7c6d;">&amp;</span><span>cycle-&gt;listening);
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(ls </span><span style="color:#db7c6d;">== </span><span style="color:#ffffff;">NULL</span><span>) {
+</span><span>            </span><span style="color:#db7c6d;">return</span><span> NGX_ERROR;
+</span><span>        }
+</span><span>
+</span><span>        </span><span style="color:#db7c6d;">*</span><span>ls </span><span style="color:#db7c6d;">=</span><span> ols;
+</span><span>        ls-&gt;worker </span><span style="color:#db7c6d;">=</span><span> n;
+</span><span>    }
+</span><span>
+</span><span style="color:#db7c6d;">#endif
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>}
+</span><span>
+</span><span style="color:#dbbb3d;">static</span><span> ngx_int_t
+</span><span style="color:#a2ba43;">ngx_event_process_init</span><span>(ngx_cycle_t </span><span style="color:#db7c6d;">*</span><span style="color:#ffffff;">cycle</span><span>)
+</span><span>{
+</span><span>		</span><span style="color:#db7c6d;">...
+</span><span>		</span><span style="color:#db7c6d;">...
+</span><span>    </span><span style="color:#707180;">/* for each listening socket */
+</span><span>
+</span><span>    ls </span><span style="color:#db7c6d;">=</span><span> cycle-&gt;listening.</span><span style="font-weight:bold;color:#a3cbe3;">elts</span><span>;
+</span><span>    </span><span style="color:#db7c6d;">for </span><span>(i </span><span style="color:#db7c6d;">= 0</span><span>; i </span><span style="color:#db7c6d;">&lt;</span><span> cycle-&gt;listening.</span><span style="font-weight:bold;color:#a3cbe3;">nelts</span><span>; i</span><span style="color:#db7c6d;">++</span><span>) {
+</span><span>
+</span><span style="color:#db7c6d;">#if</span><span> (NGX_HAVE_REUSEPORT)
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(ls[i].</span><span style="font-weight:bold;color:#a3cbe3;">reuseport </span><span style="color:#db7c6d;">&amp;&amp;</span><span> ls[i].</span><span style="font-weight:bold;color:#a3cbe3;">worker </span><span style="color:#db7c6d;">!=</span><span> ngx_worker) {
+</span><span>						</span><span style="color:#707180;">// jump to another worker listen fd
+</span><span>            </span><span style="color:#db7c6d;">continue</span><span>;
+</span><span>        }
+</span><span style="color:#db7c6d;">#endif
+</span><span>
+</span><span>        c </span><span style="color:#db7c6d;">= </span><span style="font-weight:bold;color:#a3cbe3;">ngx_get_connection</span><span>(ls[i].</span><span style="font-weight:bold;color:#a3cbe3;">fd</span><span>, cycle-&gt;log);
+</span><span>
+</span><span>	      </span><span style="color:#db7c6d;">...
+</span><span>
+</span><span style="color:#db7c6d;">#if</span><span> (NGX_HAVE_REUSEPORT)
+</span><span>
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(ls[i].</span><span style="font-weight:bold;color:#a3cbe3;">reuseport</span><span>) {
+</span><span>						</span><span style="color:#707180;">// add listen fd read event to epoll
+</span><span>            </span><span style="color:#db7c6d;">if </span><span>(</span><span style="font-weight:bold;color:#a3cbe3;">ngx_add_event</span><span>(rev, NGX_READ_EVENT, </span><span style="color:#db7c6d;">0</span><span>) </span><span style="color:#db7c6d;">==</span><span> NGX_ERROR) {
+</span><span>                </span><span style="color:#db7c6d;">return</span><span> NGX_ERROR;
+</span><span>            }
+</span><span>
+</span><span>            </span><span style="color:#db7c6d;">continue</span><span>;
+</span><span>        }
+</span><span>
+</span><span style="color:#db7c6d;">#endif
+</span><span>
+</span><span>        </span><span style="color:#db7c6d;">if </span><span>(ngx_use_accept_mutex) {
+</span><span>            </span><span style="color:#db7c6d;">continue</span><span>;
+</span><span>        }
+</span><span>		</span><span style="color:#db7c6d;">...
+</span><span>		}
+</span><span>
+</span><span>    </span><span style="color:#db7c6d;">return</span><span> NGX_OK;
+</span><span>}
+</span></code></pre>
+</li>
+<li>
+<p><code>EPOLLEXCLUSIVE</code> Linux 4.5 epoll 引入了这个参数，我觉得这个参数的引入才是真正的在尝试解决“惊群”问题（reuseport主要目的是为了多进程能够监听同一个端口，然后恰好解决了“惊群”问题）。这个选项告诉内核，内核在收到连接的时候，不要唤醒所有的监听进程，只唤醒一个。它降低了多个进程/线程通过epoll_ctl 添加共享fd 引发的惊群概率，使得一个事件发生时，只唤醒一个正在epoll_wait 阻塞等待唤醒的进程/线程（而不是全部唤醒）。这个选项在Nginx 1.11.3 引入，在这个版本之前Nginx的配置是默认开启了 accept_mutex 配置，在这之后就关闭了 accept_mutex 默认配置，因为默认有了 <code>EPOLLEXCLUSIVE</code> 方案来避免“惊群”问题。</p>
+</li>
+</ol>
+<p>所以网上有很多的文章说 Nginx默认开启了 reuseport 来避免“惊群”问题，这个理解其实不对的，reuseport 这个选项从来都没有在Nginx中默认打开过，其实也不需要打开。</p>
+<p>相关链接</p>
+<ul>
+<li><a href="https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/">https://idea.popcount.org/2017-02-20-epoll-is-fundamentally-broken-12/</a></li>
+<li><a href="https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/">https://idea.popcount.org/2017-03-20-epoll-is-fundamentally-broken-22/</a></li>
+<li><a href="https://lwn.net/Articles/542629/">https://lwn.net/Articles/542629/</a></li>
+<li><a href="https://lwn.net/Articles/667087/">https://lwn.net/Articles/667087/</a></li>
+<li><a href="https://lpc.events/event/11/contributions/946/attachments/783/1472/Socket_migration_for_SO_REUSEPORT.pdf">https://lpc.events/event/11/contributions/946/attachments/783/1472/Socket_migration_for_SO_REUSEPORT.pdf</a></li>
+</ul>
+
+</main>
+
+    <div class="dark-mode-buttons">
+        <button class="dark-mode-button" id="dark-mode-on"><img src="https://blog.stdin.in/dark_mode.svg" width="24" height="24" alt="Dark mode" aria-label="dark mode toggle" title="Dark mode"></button>
+        <button class="dark-mode-button" id="dark-mode-off"><img src="https://blog.stdin.in/light_mode.svg" width="24" height="24" alt="Light mode" aria-label="light mode toggle" title="Light mode"></button>
+    </div>
+    <script>
+        const cls = document.body.classList;
+        const getSessionTheme = sessionStorage.getItem("theme");
+        if (getSessionTheme === "dark") {
+            cls.toggle("dark-mode", true);
+        } else if (getSessionTheme === "light") {
+            cls.toggle("dark-mode", false);
+        } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            cls.toggle("dark-mode", true);
+        }
+
+        document.getElementById("dark-mode-on").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", true);
+            sessionStorage.setItem("theme", "dark");
+        });
+        document.getElementById("dark-mode-off").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", false);
+            sessionStorage.setItem("theme", "light");
+        });
+    </script>
+    <noscript>
+        <style>
+            .dark-mode-buttons {
+                display: none;
+            }
+        </style>
+    </noscript>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "0e8ea8c607c14e63990ea162c2f6c93d"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

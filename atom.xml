@@ -1,0 +1,785 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en">
+    <title>owl&#x27;s Blog</title>
+    <subtitle>owl&#x27;s Blog feedId:66419108743862272+userId:56722589749105664</subtitle>
+    <link href="https://blog.stdin.in/atom.xml" rel="self" type="application/atom+xml"/>
+    <link href="https://blog.stdin.in"/>
+    <generator uri="https://www.getzola.org/">Zola</generator>
+    <updated>2023-06-04T00:00:00+00:00</updated>
+    <id>https://blog.stdin.in/atom.xml</id>
+    <entry xml:lang="en">
+        <title>如何在透明代理网络环境下得到正常的苹果地图</title>
+        <published>2023-06-04T00:00:00+00:00</published>
+        <updated>2023-06-04T00:00:00+00:00</updated>
+        <author>
+          <name>Unknown</name>
+        </author>
+        <link rel="alternate" href="https://blog.stdin.in/blog/how-to-use-apple-map-in-transparent-proxy/" type="text/html"/>
+        <id>https://blog.stdin.in/blog/how-to-use-apple-map-in-transparent-proxy/</id>
+        
+        <content type="html">&lt;h1 id=&quot;bei-jing&quot;&gt;背景&lt;&#x2F;h1&gt;
+&lt;p&gt;是这样的，我家的透明代理策略走的是路由器上配置路由表的策略，这个策略是中国大陆的地址直接走的我家的上游，非中国大陆的地址会被路由到我内网专门的代理机器出去, 剩下的中国大陆地址就会走默认的路由。然后DNS做了分流，非中国大陆的域名会默认走  &lt;code&gt;8.8.8.8&lt;&#x2F;code&gt;进行请求，正好这个 &lt;code&gt;8.8.8.8&lt;&#x2F;code&gt; 的请求正好会被路由匹配到我的代理机器，这样就会所有的非中国域名全部走远程解析并访问了，在不需要的时候直接把路由撤销所有的请求会自动跳转回正常的默认线路，DNS也完全不需要调整（&lt;code&gt;8.8.8.8&lt;&#x2F;code&gt; 正好会被默认路由匹配到）。&lt;&#x2F;p&gt;
+&lt;h1 id=&quot;wen-ti&quot;&gt;问题&lt;&#x2F;h1&gt;
+&lt;p&gt;上面的方案我在大部分情况下都工作的很好，但是我最近遇到了一个问题：我有两个苹果设备，我很喜欢的一个苹果的APP是苹果地图，它接入了很多地图提供商，比如中国大陆接入的是高德地图，这样一个地图就能保持中国大陆内外的一致性体验了（众所周知，在中国的地图提供商没办法看清楚中国大陆以外的地图，海外的地图提供商没办法看清中国大陆境内的地图）。在我家的分流中，苹果地图没办法使用高德德地图提供商，经过我一顿谷歌搜索和抓包，大致有以下结论：&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;v2ex里面提到苹果的  &lt;a href=&quot;http:&#x2F;&#x2F;ls.apple.com&#x2F;&quot;&gt;&lt;code&gt;ls.apple.com&lt;&#x2F;code&gt;&lt;&#x2F;a&gt; 这个域名是负责苹果地图判断地理位置数据集加载的接口，但是提到的解决方案不适用于我，因为我的代理策略并没有经过TLS Sniffer。&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;&lt;a href=&quot;https:&#x2F;&#x2F;www.v2ex.com&#x2F;t&#x2F;682766&quot;&gt;使用 ClashX 代理， macOS 地图.app 无法调用高德的数据。需要添加什么规则才可以使用高德数据？ - V2EX&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;于是我尝试在 Adguard-Home 里面调了下DNS的规则&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;[&#x2F;*.ls.apple.com&#x2F;]114.114.114.114
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;然后发现根本不起作用，然后我看了下 DNS 的日志，发现苹果的DNS有很多 CNAME 到各个 CDN，这样我们就没办法通过 DNS 规则来指定上游解析了，因为我们并不知道苹果有多少 CNAME，并且这些CNAME什么时候会变。并且我就算匹配到了上游，但是因为很多 CDN 在中国大陆并没有接入点，所以最终的访问还是会走代理，这也有可能会影响苹果服务器的判断。&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;➜  ~ (root@archlinux-router) dig gsp-ssl.ls.apple.com @1.1.1.1
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;; &amp;lt;&amp;lt;&amp;gt;&amp;gt; DiG 9.18.15 &amp;lt;&amp;lt;&amp;gt;&amp;gt; gsp-ssl.ls.apple.com @1.1.1.1
+&lt;&#x2F;span&gt;&lt;span&gt;;; global options: +cmd
+&lt;&#x2F;span&gt;&lt;span&gt;;; Got answer:
+&lt;&#x2F;span&gt;&lt;span&gt;;; -&amp;gt;&amp;gt;HEADER&amp;lt;&amp;lt;- opcode: QUERY, status: NOERROR, id: 9585
+&lt;&#x2F;span&gt;&lt;span&gt;;; flags: qr rd ra; QUERY: 1, ANSWER: 6, AUTHORITY: 0, ADDITIONAL: 1
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;;; OPT PSEUDOSECTION:
+&lt;&#x2F;span&gt;&lt;span&gt;; EDNS: version: 0, flags:; udp: 1232
+&lt;&#x2F;span&gt;&lt;span&gt;;; QUESTION SECTION:
+&lt;&#x2F;span&gt;&lt;span&gt;;gsp-ssl.ls.apple.com.		IN	A
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;;; ANSWER SECTION:
+&lt;&#x2F;span&gt;&lt;span&gt;gsp-ssl.ls.apple.com.	3582	IN	CNAME	gsp-ssl.ls-apple.com.akadns.net.
+&lt;&#x2F;span&gt;&lt;span&gt;gsp-ssl.ls-apple.com.akadns.net. 12 IN	CNAME	gsp-ssl-geomap.ls-apple.com.akadns.net.
+&lt;&#x2F;span&gt;&lt;span&gt;gsp-ssl-geomap.ls-apple.com.akadns.net.	42 IN CNAME gspx-ssl.ls.apple.com.
+&lt;&#x2F;span&gt;&lt;span&gt;gspx-ssl.ls.apple.com.	3582	IN	CNAME	get-bx.g.aaplimg.com.
+&lt;&#x2F;span&gt;&lt;span&gt;get-bx.g.aaplimg.com.	12	IN	A	17.253.5.208
+&lt;&#x2F;span&gt;&lt;span&gt;get-bx.g.aaplimg.com.	12	IN	A	17.253.17.211
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;;; Query time: 129 msec
+&lt;&#x2F;span&gt;&lt;span&gt;;; SERVER: 1.1.1.1#53(1.1.1.1) (UDP)
+&lt;&#x2F;span&gt;&lt;span&gt;;; WHEN: Sun Jun 04 14:44:12 CST 2023
+&lt;&#x2F;span&gt;&lt;span&gt;;; MSG SIZE  rcvd: 209
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;h1 id=&quot;jie-jue-fang-an&quot;&gt;解决方案&lt;&#x2F;h1&gt;
+&lt;p&gt;于是乎问题就变成了， 需要在我家的环境下，让访问苹果  &lt;code&gt;*.ls.apple.com&lt;&#x2F;code&gt; 域名的所有请求（包含 DNS 解析）不走任何的代理，咨询了一下朋友们，大致有以下几个方案&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;写个脚本，手动解析&lt;code&gt;*.ls.apple.com&lt;&#x2F;code&gt;那几个域名的 IP 地址，然后放到 ip rule 或者其他路由表里。&lt;&#x2F;p&gt;
+&lt;p&gt;我并不能枚举所有的 &lt;code&gt;*.ls.apple.com&lt;&#x2F;code&gt; 的域名，而且他们的 CNAME 我更没办法枚举，他们后面的IP地址大概率是CDN的地址，我如果肆意的给这些地址使用特殊规则的话可能会影响我的其他请求访问（比如 Cloudflare 这种全部都是 BGP Anycast IP 的 CDN 厂商，给他的一个IP设置特殊的规则可能会影响到很大比例的网站访问）。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;使用 DNS 解析结果打 fwmark 的插件，然后给它特定的路由，就是那些人只用域名，不用 IP 列表来分流的方案。&lt;&#x2F;p&gt;
+&lt;p&gt;dnsmasq 支持操作  &lt;a href=&quot;https:&#x2F;&#x2F;man.archlinux.org&#x2F;man&#x2F;dnsmasq.8.en#ipset=&#x2F;_domain__&#x2F;_domain_..._&#x2F;_ipset__,_ipset_..._&quot;&gt;ipset&lt;&#x2F;a&gt; ，这样就可以根据DNS结果来让 iptables 给流量打上标记，然后指定查询路由表，但是这个方案还是有上面一样的问题，CDN不友好。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;内网搭建个 SNI Proxy, 在路由器上面 hosts 或者 DNS 服务配置里面将目标域名解析到我的的 SNI Proxy 服务上。&lt;&#x2F;p&gt;
+&lt;p&gt;这个方案看起来是可以的，于是我就采用了这个方案。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;要实施上面的方案三，大致需要这几个步骤&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;在内网完全不走任何代理的机器上部署一个SNI Proxy。&lt;&#x2F;p&gt;
+&lt;p&gt;使用 Nginx 的来搭建一个 SNI Proxy 服务器，重定向 80 和 443 的流量到需要的服务地址&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;user http;
+&lt;&#x2F;span&gt;&lt;span&gt;worker_processes  1;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;error_log   &#x2F;var&#x2F;log&#x2F;nginx&#x2F;error.log;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;events {
+&lt;&#x2F;span&gt;&lt;span&gt;    worker_connections  1024;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;http {
+&lt;&#x2F;span&gt;&lt;span&gt;    map $host $backend_name {
+&lt;&#x2F;span&gt;&lt;span&gt;        default $host;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;    resolver 114.114.114.114 ipv6=off;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    access_log &#x2F;var&#x2F;log&#x2F;nginx&#x2F;sni_http_access.log;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    server {
+&lt;&#x2F;span&gt;&lt;span&gt;        listen 80;
+&lt;&#x2F;span&gt;&lt;span&gt;        location &#x2F; {
+&lt;&#x2F;span&gt;&lt;span&gt;            proxy_pass http:&#x2F;&#x2F;$backend_name;
+&lt;&#x2F;span&gt;&lt;span&gt;            proxy_set_header Host $backend_name;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;stream {
+&lt;&#x2F;span&gt;&lt;span&gt;    map $ssl_preread_server_name $backend_name {
+&lt;&#x2F;span&gt;&lt;span&gt;        default $ssl_preread_server_name;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    resolver 114.114.114.114 ipv6=off;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    log_format proxy &amp;#39;$remote_addr [$time_local] $ssl_preread_server_name &amp;#39;
+&lt;&#x2F;span&gt;&lt;span&gt;               &amp;#39;$protocol $status $bytes_sent $bytes_received &amp;#39;
+&lt;&#x2F;span&gt;&lt;span&gt;               &amp;#39;$session_time &amp;quot;$upstream_addr&amp;quot; &amp;#39;
+&lt;&#x2F;span&gt;&lt;span&gt;               &amp;#39;&amp;quot;$upstream_bytes_sent&amp;quot; &amp;quot;$upstream_bytes_received&amp;quot; &amp;quot;$upstream_connect_time&amp;quot;&amp;#39;;
+&lt;&#x2F;span&gt;&lt;span&gt;    access_log &#x2F;var&#x2F;log&#x2F;nginx&#x2F;sni_https_access.log proxy;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    server {
+&lt;&#x2F;span&gt;&lt;span&gt;       listen 443;
+&lt;&#x2F;span&gt;&lt;span&gt;       ssl_preread on;
+&lt;&#x2F;span&gt;&lt;span&gt;       proxy_timeout 5s;
+&lt;&#x2F;span&gt;&lt;span&gt;       proxy_pass $backend_name:443;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在路由器上关掉本机器的透明代理&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;bash&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-bash &quot;&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ip&lt;&#x2F;span&gt;&lt;span&gt; route add default via 10.0.150.254 dev enp3s0 table 8888
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ip&lt;&#x2F;span&gt;&lt;span&gt; rule add from 192.168.233.171 lookup 8888
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;使用 DNS 转发器的 DNS 重写功能把 &lt;code&gt;*.ls.apple.com&lt;&#x2F;code&gt; 的请求全部重定向到上面那台机器。&lt;&#x2F;p&gt;
+&lt;p&gt;我直接在 Adguard-home 写入如下重定向规则&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;*.ls.apple.com 192.168.233.171（
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;最后看检查一下日志和苹果设备上的地图，一切按照预期工作正常。&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;bash&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-bash &quot;&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;[root@archlinux-tool ~&lt;&#x2F;span&gt;&lt;span&gt;]# tail&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt; -f&lt;&#x2F;span&gt;&lt;span&gt; &#x2F;var&#x2F;log&#x2F;nginx&#x2F;sni_https_access.log
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:09:42 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.582 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.34.208.4:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.185&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:09:57 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.569 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.34.208.4:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.180&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:10:36 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4773 598 7.844 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.34.208.4:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;1115&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4773&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.189&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:11:18 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.603 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.34.208.4:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.192&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:12:34 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.051 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.45.60.145:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.034&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:13:38 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.062 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.45.60.145:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.057&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:13:43 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.059 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.45.60.145:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.053&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:15:21 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gsp64-ssl.ls.apple.com TCP 200 3851 1424 1.867 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;17.36.206.7:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;1941&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;3851&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.221&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:16:15 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gspe1-ssl.ls.apple.com TCP 200 4624 339 5.618 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;23.34.208.4:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;856&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;4624&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.197&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;192.168.233.193 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;[&lt;&#x2F;span&gt;&lt;span&gt;04&#x2F;Jun&#x2F;2023:07:17:51 +0000&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;]&lt;&#x2F;span&gt;&lt;span&gt; gsp64-ssl.ls.apple.com TCP 200 3853 1114 1.970 &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;17.36.206.8:443&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;1631&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;3853&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot; &amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;0.199&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+</content>
+        
+    </entry>
+    <entry xml:lang="en">
+        <title>Nginx Network IO Module</title>
+        <published>2023-03-26T00:00:00+00:00</published>
+        <updated>2023-03-26T00:00:00+00:00</updated>
+        <author>
+          <name>Unknown</name>
+        </author>
+        <link rel="alternate" href="https://blog.stdin.in/blog/nginx-network-io-module/" type="text/html"/>
+        <id>https://blog.stdin.in/blog/nginx-network-io-module/</id>
+        
+        <content type="html">&lt;p&gt;在网上读过很多Nginx有关的关于网络IO模型的文章，总是感觉很凌乱，再加上最近一位老友密集追问下，重读Nginx源码，才知道自己和中文网络上的文章理解错误了很多东西。&lt;&#x2F;p&gt;
+&lt;p&gt;先说 Nginx 的实现吧，这里只讨论 Linux 环境下的 epoll 网络模型。 先讨论一下 Nginx 是怎么监听并且处理连接的，在Nginx的master进程启动阶段读取所有配置，然后 bind + listen 相应的 socket端口，然后 fork 出来 n 个 worker 子进程，这些子进程会在 epoll 里面注册好这个 fork 出来继承的 listen fd。然后每个 worker 进程都会有一个 event loop 不停的去 epoll_wait 等待新的连接事件，如果是 listen fd 被 epoll_wait 到了，这个时候会尝试 accept 这个 fd 来获得新连接。和上述处理模型有关的有几个相关 Nginx 配置。下面的列表顺序就是时间线。&lt;&#x2F;p&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;strong&gt;&lt;code&gt;accept_mutex&lt;&#x2F;code&gt;&lt;&#x2F;strong&gt; 这个是最老的配置，Nginx 的上述的这套模式，很多 worker 进程的 epoll_wait 同一个listen fd, 这个时候会产生一个经典的“惊群”效应，也就是来了一个新连接的话会唤醒所有的worker的 epoll_wait, 这个时候其实是只有一个 worker 会真正需要处理连接，其他的进程是“一场空”的，这个时候如果连接和worker的数目都很多的话，会导致很多不必要的上下文切换，所以Nginx给出了一个 &lt;strong&gt;&lt;code&gt;accept_mutex&lt;&#x2F;code&gt;&lt;&#x2F;strong&gt; 选项，在 1.11.3 版本之前，这个选项默认是给开的，逻辑是，开了这个选项的话， Nginx会在多进程内部有个用原子指令实现的多进程的锁，来保证 调用 listen fd 在一个时刻只能被一个worker epoll_wait，这样就能保证只会有一个进程被唤醒，避免了“惊群”问题。&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span&gt;ngx_int_t
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_trylock_accept_mutex&lt;&#x2F;span&gt;&lt;span&gt;(ngx_cycle_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;cycle&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_shmtx_trylock&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;ngx_accept_mutex)) {
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_debug0&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_DEBUG_EVENT, cycle-&amp;gt;log, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;                       &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;accept mutex locked&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ngx_accept_mutex_held &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt; ngx_accept_events &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;== 0&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;				&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; add listen fd to epoll
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_enable_accept_events&lt;&#x2F;span&gt;&lt;span&gt;(cycle) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;==&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR) {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_shmtx_unlock&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;ngx_accept_mutex);
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        ngx_accept_events &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= 0&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;        ngx_accept_mutex_held &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= 1&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_debug1&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_DEBUG_EVENT, cycle-&amp;gt;log, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;                   &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;accept mutex lock failed: &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;i&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, ngx_accept_mutex_held);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ngx_accept_mutex_held) {
+&lt;&#x2F;span&gt;&lt;span&gt;				&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; delete listen fd to epoll
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_disable_accept_events&lt;&#x2F;span&gt;&lt;span&gt;(cycle, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;==&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR) {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        ngx_accept_mutex_held &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= 0&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;**reuseport**&lt;&#x2F;code&gt; 时间来到 Linux 3.9 时代，内核引入了全新的一个 socket 选项，这个选项开启了之后，很多个进程可以同时监听一个端口，新连接进来的时候，内核根据“五元组”来hash出来一个连接来具体分配给某个进程，这样其实就也解决了惊群问题了。这里 Nginx 有个非常不常规的实现，一般来说使用 reuseport 的话会在每个进程内自己进行 bind + listen 动作，但是Nginx这里在master进程里一次性监听了 n 个相同端口的fd， 然后所有的 worker 分别 epoll_wait 自己对应的 fd, 所以开了reuseport 之后的 Nginx的 socket状态会看到很多个 master 进程 listen 同一个端口。这个选项在 Nginx 1.9.1 版本中引入，但是并没有成为默认配置。&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span&gt;ngx_int_t
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_clone_listening&lt;&#x2F;span&gt;&lt;span&gt;(ngx_cycle_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;cycle&lt;&#x2F;span&gt;&lt;span&gt;, ngx_listening_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;ls&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#if&lt;&#x2F;span&gt;&lt;span&gt; (NGX_HAVE_REUSEPORT)
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_int_t         n;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_core_conf_t  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;ccf;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_listening_t   ols;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;!&lt;&#x2F;span&gt;&lt;span&gt;ls-&amp;gt;reuseport &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;||&lt;&#x2F;span&gt;&lt;span&gt; ls-&amp;gt;worker &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;!= 0&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ols &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= *&lt;&#x2F;span&gt;&lt;span&gt;ls;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ccf &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span&gt;(ngx_core_conf_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_get_conf&lt;&#x2F;span&gt;&lt;span&gt;(cycle-&amp;gt;conf_ctx, ngx_core_module);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span&gt;(n &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= 1&lt;&#x2F;span&gt;&lt;span&gt;; n &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span&gt; ccf-&amp;gt;worker_processes; n&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;++&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;* create a socket for each worker process *&#x2F;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        ls &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_array_push&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;cycle-&amp;gt;listening);
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ls &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;NULL&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;ls &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; ols;
+&lt;&#x2F;span&gt;&lt;span&gt;        ls-&amp;gt;worker &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; n;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#endif
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#dbbb3d;&quot;&gt;static&lt;&#x2F;span&gt;&lt;span&gt; ngx_int_t
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_event_process_init&lt;&#x2F;span&gt;&lt;span&gt;(ngx_cycle_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;cycle&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;		&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;...
+&lt;&#x2F;span&gt;&lt;span&gt;		&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;...
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;* for each listening socket *&#x2F;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ls &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;=&lt;&#x2F;span&gt;&lt;span&gt; cycle-&amp;gt;listening.&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;elts&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;for &lt;&#x2F;span&gt;&lt;span&gt;(i &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= 0&lt;&#x2F;span&gt;&lt;span&gt;; i &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;lt;&lt;&#x2F;span&gt;&lt;span&gt; cycle-&amp;gt;listening.&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;nelts&lt;&#x2F;span&gt;&lt;span&gt;; i&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;++&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#if&lt;&#x2F;span&gt;&lt;span&gt; (NGX_HAVE_REUSEPORT)
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ls[i].&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;reuseport &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt; ls[i].&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;worker &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;!=&lt;&#x2F;span&gt;&lt;span&gt; ngx_worker) {
+&lt;&#x2F;span&gt;&lt;span&gt;						&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; jump to another worker listen fd
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;continue&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#endif
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        c &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_get_connection&lt;&#x2F;span&gt;&lt;span&gt;(ls[i].&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;fd&lt;&#x2F;span&gt;&lt;span&gt;, cycle-&amp;gt;log);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;	      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;...
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#if&lt;&#x2F;span&gt;&lt;span&gt; (NGX_HAVE_REUSEPORT)
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ls[i].&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;reuseport&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;						&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; add listen fd read event to epoll
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_add_event&lt;&#x2F;span&gt;&lt;span&gt;(rev, NGX_READ_EVENT, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;==&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR) {
+&lt;&#x2F;span&gt;&lt;span&gt;                &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR;
+&lt;&#x2F;span&gt;&lt;span&gt;            }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;continue&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;#endif
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(ngx_use_accept_mutex) {
+&lt;&#x2F;span&gt;&lt;span&gt;            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;continue&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;        }
+&lt;&#x2F;span&gt;&lt;span&gt;		&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;...
+&lt;&#x2F;span&gt;&lt;span&gt;		}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;&#x2F;li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;code&gt;EPOLLEXCLUSIVE&lt;&#x2F;code&gt; Linux 4.5 epoll 引入了这个参数，我觉得这个参数的引入才是真正的在尝试解决“惊群”问题（reuseport主要目的是为了多进程能够监听同一个端口，然后恰好解决了“惊群”问题）。这个选项告诉内核，内核在收到连接的时候，不要唤醒所有的监听进程，只唤醒一个。它降低了多个进程&#x2F;线程通过epoll_ctl 添加共享fd 引发的惊群概率，使得一个事件发生时，只唤醒一个正在epoll_wait 阻塞等待唤醒的进程&#x2F;线程（而不是全部唤醒）。这个选项在Nginx 1.11.3 引入，在这个版本之前Nginx的配置是默认开启了 accept_mutex 配置，在这之后就关闭了 accept_mutex 默认配置，因为默认有了 &lt;code&gt;EPOLLEXCLUSIVE&lt;&#x2F;code&gt; 方案来避免“惊群”问题。&lt;&#x2F;p&gt;
+&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+&lt;p&gt;所以网上有很多的文章说 Nginx默认开启了 reuseport 来避免“惊群”问题，这个理解其实不对的，reuseport 这个选项从来都没有在Nginx中默认打开过，其实也不需要打开。&lt;&#x2F;p&gt;
+&lt;p&gt;相关链接&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;idea.popcount.org&#x2F;2017-02-20-epoll-is-fundamentally-broken-12&#x2F;&quot;&gt;https:&#x2F;&#x2F;idea.popcount.org&#x2F;2017-02-20-epoll-is-fundamentally-broken-12&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;idea.popcount.org&#x2F;2017-03-20-epoll-is-fundamentally-broken-22&#x2F;&quot;&gt;https:&#x2F;&#x2F;idea.popcount.org&#x2F;2017-03-20-epoll-is-fundamentally-broken-22&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;lwn.net&#x2F;Articles&#x2F;542629&#x2F;&quot;&gt;https:&#x2F;&#x2F;lwn.net&#x2F;Articles&#x2F;542629&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;lwn.net&#x2F;Articles&#x2F;667087&#x2F;&quot;&gt;https:&#x2F;&#x2F;lwn.net&#x2F;Articles&#x2F;667087&#x2F;&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;lpc.events&#x2F;event&#x2F;11&#x2F;contributions&#x2F;946&#x2F;attachments&#x2F;783&#x2F;1472&#x2F;Socket_migration_for_SO_REUSEPORT.pdf&quot;&gt;https:&#x2F;&#x2F;lpc.events&#x2F;event&#x2F;11&#x2F;contributions&#x2F;946&#x2F;attachments&#x2F;783&#x2F;1472&#x2F;Socket_migration_for_SO_REUSEPORT.pdf&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+</content>
+        
+    </entry>
+    <entry xml:lang="en">
+        <title>Nginx Memory Management</title>
+        <published>2020-04-11T00:00:00+00:00</published>
+        <updated>2020-04-11T00:00:00+00:00</updated>
+        <author>
+          <name>Unknown</name>
+        </author>
+        <link rel="alternate" href="https://blog.stdin.in/blog/nginx-memory-management/" type="text/html"/>
+        <id>https://blog.stdin.in/blog/nginx-memory-management/</id>
+        
+        <content type="html">&lt;h2 id=&quot;1-linux-de-nei-cun-guan-li&quot;&gt;1. Linux 的内存管理&lt;&#x2F;h2&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;+---------+  init system   +--------------+  page frame   +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| Bootmem | -------------&amp;gt; |              | ------------&amp;gt; |                  |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------+                |              |               |                  |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |                  |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |       Slab       | -------------------------------------------------------------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |                  |                                                                          |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |                  |                                                                          |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |                  | --------------------------------------------------------------------+    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               +------------------+                                                                     |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |                 |                                                                                      |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |                 | small objects                                                                        |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |                 |                                                                                      |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           | Buddy System |                 |                                        +- - - - - - - - - - - - - - - - - - - - - +  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |                 |                                        &amp;#39; userspace:                               &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |                 v                                        &amp;#39;                                          &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |  page frame   +------------------+  syscall (brk&#x2F;mmap)   &amp;#39; +----------+  malloc()   +-------------+ &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              | ------------&amp;gt; |                  | --------------------&amp;gt; &amp;#39; |  malloc  | ----------&amp;gt; | application | &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               | Memory Mangement |                       &amp;#39; +----------+             +-------------+ &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               |                  |                       &amp;#39;                                          &amp;#39;  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               +------------------+                       +- - - - - - - - - - - - - - - - - - - - - +  |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |  page frame   +------------------+  small objects                                                      |    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              | ------------&amp;gt; |  Device Drivers  | &amp;lt;-------------------------------------------------------------------+    |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |               +------------------+                                                                          |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              |  page frame   +------------------+  small objects                                                           |
+&lt;&#x2F;span&gt;&lt;span&gt;                           |              | ------------&amp;gt; |   File System    | &amp;lt;------------------------------------------------------------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;                           +--------------+               +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在上图里，内核在启动的时候会加载 Bootmem 内存管理系统（这里使用 bitmap 索引内存并分配。然后等初始化到 Buddy System 之后，将未分配的内存全部交给 Buddy System, Buddy System 在 Linux 内核中是做页的分配 (一般来说，页的大小为4k)。再然后到了 Slab 内存管理系统，Slab 主要用于小内存的分配和释放，也就是小于一个页面大小的内存。这里 Slab 对内存的分配和释放起到了 Cache 的作用，在 Linux 内核中地位应该是内存管理模块的老大了。Slab 和 Buddy System 初始化完成之后，内核的内存管理系统基本上已经初始化完成了，这个时候我们其他的内核模块（图中的 Device Drivers 和 File System）申请释放内存就可以直接进行了。要了解更多关于 Slab 和 Buddy System 的信息，可以查看 procfs 中的 &lt;code&gt;&#x2F;proc&#x2F;buddyinfo&lt;&#x2F;code&gt; 和 &lt;code&gt;&#x2F;proc&#x2F;slabinfo&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;p&gt;在用户态层面，用户态程序在执行 malloc 的函数调用的时候，会直接在 libc 函数库里面的 ptmalloc 里面执行 brk()&#x2F;mmap() 系统调用进行虚拟内存的分配，这两个系统调用在内核的层面依然是在和 Slab&#x2F;Buddy System 进行交互，当然，这里只是对虚拟内存的一些结构体进行初始化，并没有真正的分配到内存。其实这里说到的 ptmalloc 在用户态层面也是一种类似于 Slab 的内存分配 Cache 系统（类似 ptmalloc 的用户态 memory allocator 有 mimalloc tcmalloc jemalloc,我们可以视不同的场景而选用这些 malloc 实现）。真正触发物理内存的分配是在用户态程序在获得虚拟内存然后对该内存写之后，触发了缺页中断，这个时候在内核的中断处理过程中就会分配并映射物理内存到虚拟地址上，这个时候也同样是在 Buddy System 当中进行 malloc 页面。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;2-nginx-nei-cun-guan-li-yuan-ma-fen-xi&quot;&gt;2. Nginx 内存管理源码分析&lt;&#x2F;h2&gt;
+&lt;h3 id=&quot;1-ngx-alloc-c-h&quot;&gt;1. ngx_alloc.c(h)&lt;&#x2F;h3&gt;
+&lt;p&gt;这里主要是 Nginx 的基础内存分配的代码，包装 libc 里面的内存分配函数，至于为什么需要包装呢？这是因为 Nginx 是跨平台的，可不止有 Linux 这一个平台上能跑 Nginx。&lt;&#x2F;p&gt;
+&lt;p&gt;在 Linux 环境下手动展开了宏核心代码是这个样子：&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_alloc&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;, ngx_log_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;log&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;p;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    p &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= malloc&lt;&#x2F;span&gt;&lt;span&gt;(size);
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(p &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;== &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;NULL&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_error&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_EMERG, log, ngx_errno,
+&lt;&#x2F;span&gt;&lt;span&gt;                      &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;malloc(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z) failed&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, size);
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_debug2&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_DEBUG_ALLOC, log, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;malloc: &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%p&lt;&#x2F;span&gt;&lt;span&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, p, size);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; p;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_calloc&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;, ngx_log_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;log&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;p;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    p &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_alloc&lt;&#x2F;span&gt;&lt;span&gt;(size, log);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(p) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_memzero&lt;&#x2F;span&gt;&lt;span&gt;(p, size);
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; p;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_memalign&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;alignment&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;, ngx_log_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;log&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;p;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;int&lt;&#x2F;span&gt;&lt;span&gt;    err;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    err &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;posix_memalign&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;&amp;amp;&lt;&#x2F;span&gt;&lt;span&gt;p, alignment, size);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(err) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_error&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_EMERG, log, err,
+&lt;&#x2F;span&gt;&lt;span&gt;                      &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;posix_memalign(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z, &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z) failed&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, alignment, size);
+&lt;&#x2F;span&gt;&lt;span&gt;        p &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;NULL&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_debug3&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_DEBUG_ALLOC, log, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;,
+&lt;&#x2F;span&gt;&lt;span&gt;                   &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;posix_memalign: &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%p&lt;&#x2F;span&gt;&lt;span&gt;:&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z @&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, p, size, alignment);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; p;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;我们可以看到 Nginx 的 ngx_alloc() ngx_calloc() ngx_memalign() 三个函数只是对 libc malloc 函数的简单封装，也就是说仍然是在调用这些函数。我认为在这里还是有一个比较粗暴的点，就是在分配 ngx_calloc() 的时候我们是暴力的分配内存然后在将内存初始化为 0, 但是在 libc的实现里面 &lt;code&gt;calloc ！= malloc + memzero&lt;&#x2F;code&gt;,可能在 Nginx 的场景下, 使用这种实现和带 libc 带惰性初始化的实现没什么具体的性能差距。Nginx 的内存分配都是比较小块的，具体的信息可以看 stackoverflow 的这个问题 : 
+&lt;a href=&quot;https:&#x2F;&#x2F;stackoverflow.com&#x2F;questions&#x2F;2688466&#x2F;why-mallocmemset-is-slower-than-calloc&quot;&gt;why-mallocmemset-is-slower-than-calloc&lt;&#x2F;a&gt;&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;2-ngx-shmem-c-h&quot;&gt;2.ngx_shmem.c(h)&lt;&#x2F;h3&gt;
+&lt;p&gt;这里主要是 Nginx 底层对共享内存的创建与销毁相关实现。&lt;&#x2F;p&gt;
+&lt;p&gt;在 Linux 环境下手动展开了宏核心代码是这个样子：&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char      &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;addr;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t&lt;&#x2F;span&gt;&lt;span&gt;       size;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_str_t    name;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_log_t   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;log;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t   exists;   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;* unsigned  exists:1;  *&#x2F;
+&lt;&#x2F;span&gt;&lt;span&gt;} ngx_shm_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;ngx_int_t
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_shm_alloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_shm_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;shm&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    shm-&amp;gt;addr &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;= &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;) &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;mmap&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;NULL&lt;&#x2F;span&gt;&lt;span&gt;, shm-&amp;gt;size,
+&lt;&#x2F;span&gt;&lt;span&gt;                                PROT_READ&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;|&lt;&#x2F;span&gt;&lt;span&gt;PROT_WRITE,
+&lt;&#x2F;span&gt;&lt;span&gt;                                MAP_ANON&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;|&lt;&#x2F;span&gt;&lt;span&gt;MAP_SHARED, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;-1&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;0&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(shm-&amp;gt;addr &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;==&lt;&#x2F;span&gt;&lt;span&gt; MAP_FAILED) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_error&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_ALERT, shm-&amp;gt;log, ngx_errno,
+&lt;&#x2F;span&gt;&lt;span&gt;                      &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;mmap(MAP_ANON|MAP_SHARED, &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z) failed&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, shm-&amp;gt;size);
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_ERROR;
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;return&lt;&#x2F;span&gt;&lt;span&gt; NGX_OK;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_shm_free&lt;&#x2F;span&gt;&lt;span&gt;(ngx_shm_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;shm&lt;&#x2F;span&gt;&lt;span&gt;)
+&lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;if &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;munmap&lt;&#x2F;span&gt;&lt;span&gt;((&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;) shm-&amp;gt;addr, shm-&amp;gt;size) &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;== -1&lt;&#x2F;span&gt;&lt;span&gt;) {
+&lt;&#x2F;span&gt;&lt;span&gt;        &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a3cbe3;&quot;&gt;ngx_log_error&lt;&#x2F;span&gt;&lt;span&gt;(NGX_LOG_ALERT, shm-&amp;gt;log, ngx_errno,
+&lt;&#x2F;span&gt;&lt;span&gt;                      &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;munmap(&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%p&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#a2ba43;&quot;&gt;%u&lt;&#x2F;span&gt;&lt;span&gt;z) failed&lt;&#x2F;span&gt;&lt;span style=&quot;font-weight:bold;color:#dbbb3d;&quot;&gt;&amp;quot;&lt;&#x2F;span&gt;&lt;span&gt;, shm-&amp;gt;addr, shm-&amp;gt;size);
+&lt;&#x2F;span&gt;&lt;span&gt;    }
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;在现代 Linux 环境下默认使用的是 mmap 匿名映射来实现进程间的共享内存，至于为什么没有使用 shm_open 这种方式来实现， 因为 Nginx 是在 master fork to worker 这种形式来进行的，我们不需要在毫无关联的两个进程上进行通信，所以采用 mmap 匿名映射是最直接的方法。当然为了跨平台还有其他的宏定义会采用 &lt;code&gt;&#x2F;dev&#x2F;zero&lt;&#x2F;code&gt; 和 &lt;code&gt;System V&lt;&#x2F;code&gt; IPC 的方式，也是很有效的方法。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;3-ngx-palloc-c-h&quot;&gt;3.ngx_palloc.c(h)&lt;&#x2F;h3&gt;
+&lt;p&gt;接下来就是 Nginx 引以为傲的内存池上场了。Nginx中大多数的内存分配都是在内存池中完成的，在内存池中分配的内存在内存池被销毁时会被自动的释放。这就使得可以获得很高的内存分配性能，并使得内存控制更加简单。&lt;&#x2F;p&gt;
+&lt;p&gt;直接看我加了注释的 &lt;code&gt;ngx_palloc.h&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef void &lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_cleanup_pt)(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;data);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct&lt;&#x2F;span&gt;&lt;span&gt; ngx_pool_cleanup_s  ngx_pool_cleanup_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 释放内存池拥有的资源，也就是内存池在释放的时候会选择同步释放的资源，一般用于缓存文件的释放
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_cleanup_s {
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_cleanup_pt   handler;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void                 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;data;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_cleanup_t   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;next;
+&lt;&#x2F;span&gt;&lt;span&gt;};
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct&lt;&#x2F;span&gt;&lt;span&gt; ngx_pool_large_s  ngx_pool_large_t;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * 内存池中的大内存，ngx_pool_large_s 是一个链表结构，结构本身存储在内存池中，
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * 指针指向操作系统 malloc 出来的对应大小内存
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; *&#x2F;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_large_s {
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_large_t     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;next;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void                 &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;alloc;
+&lt;&#x2F;span&gt;&lt;span&gt;};
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 内存池中的主要结构， ngx_pool_data_t 对应内存池的 Metadata，描述内存池的分配状态信息
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char               &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;last;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char               &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;end;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_t           &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;next;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t            failed;
+&lt;&#x2F;span&gt;&lt;span&gt;} ngx_pool_data_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * ngx_pool_s 是我们需要的内存池结构，其中包含了大内存和小内存，以及外挂在内存池生命周期的
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * 缓存文件结构
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; *&#x2F;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_s {
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_data_t       d;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t&lt;&#x2F;span&gt;&lt;span&gt;                max;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_t           &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;current;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_chain_t          &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;chain;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_large_t     &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;large;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_pool_cleanup_t   &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;cleanup;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_log_t            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;log;
+&lt;&#x2F;span&gt;&lt;span&gt;};
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_fd_t              fd;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char               &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;name;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_log_t            &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;log;
+&lt;&#x2F;span&gt;&lt;span&gt;} ngx_pool_cleanup_file_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 创建内存池
+&lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_create_pool&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;, ngx_log_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;log&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 销毁内存池，内存池中的大内存和小内存链表都会被释放
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_destroy_pool&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 重置内存池，将内存池中的数据结构初始化为开始的状态，并释放那些已经分配的大内存
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_reset_pool&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 从内存池中分配内存,根据大小来判断分配方式：大内存或者小内存
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_palloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 从内存池中分配内存，且不对其进行内存对齐
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pnalloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 从内存池中分配内存，并将分配到的内存初始化为0
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pcalloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;*
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * 按照 alignment 对齐大小来分配内存，该内存无论大小都会在操作系统中进行 malloc，
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; * 分配完外挂到大内存链表上 
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt; *&#x2F;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pmemalign&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;alignment&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 提前释放大块内存
+&lt;&#x2F;span&gt;&lt;span&gt;ngx_int_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pfree&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;p&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 随着内存池的释放同步释放资源的操作
+&lt;&#x2F;span&gt;&lt;span&gt;ngx_pool_cleanup_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pool_cleanup_add&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;p&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pool_run_cleanup_file&lt;&#x2F;span&gt;&lt;span&gt;(ngx_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;p&lt;&#x2F;span&gt;&lt;span&gt;, ngx_fd_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;fd&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pool_cleanup_file&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;data&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_pool_delete_file&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;data&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;直接画出内存池的结构图&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;+--------------------------------------------------------+---------------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|       ngx_pool_t                                       |        memory block       |
+&lt;&#x2F;span&gt;&lt;span&gt;+--------------------+---+-------+-----+-----+-------+-----------------+-------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| ngx_pool_data_t *d |   |       |     |     |       |   |             |             |
+&lt;&#x2F;span&gt;&lt;span&gt;+--------------------+max|current|chain|large|cleanup|log|     used    |   unused    |
+&lt;&#x2F;span&gt;&lt;span&gt;|last|end|next|failed|   |       |     |     |       |   |             |             |
+&lt;&#x2F;span&gt;&lt;span&gt;+--+---+---+-------------+---+---+-----+--+--+----+--+---+-------------+-------------+
+&lt;&#x2F;span&gt;&lt;span&gt;   |   |   |                 |            |       |                                  ^
+&lt;&#x2F;span&gt;&lt;span&gt;   |   |   |                 |            |       |                    ^             |
+&lt;&#x2F;span&gt;&lt;span&gt;   |   |   |                 |            |       |                    |             |
+&lt;&#x2F;span&gt;&lt;span&gt;   |   +---------------------------------------------------------------+             |
+&lt;&#x2F;span&gt;&lt;span&gt;   +---------------------------------------------------------------------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;+----------|                 |            |       |
+&lt;&#x2F;span&gt;&lt;span&gt;+----------------------------+            |       +---------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;v                                         |                             |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------------+--------------+          v                             v
+&lt;&#x2F;span&gt;&lt;span&gt;|  ngx_pool_t   | memory block |          +----------------+            +----------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;+----------+----+--------------+          |ngx_pool_large_t|            |  ngx_pool_cleanup_t  |
+&lt;&#x2F;span&gt;&lt;span&gt;           |                              +--------+-------+            +--------+------+------+
+&lt;&#x2F;span&gt;&lt;span&gt;+----------+                              | alloc  | next  |            | hander | data | next |
+&lt;&#x2F;span&gt;&lt;span&gt;|                                         +--------+---+---+            +--------+------+---+--+
+&lt;&#x2F;span&gt;&lt;span&gt;v                                                      |                                    |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------------+--------------+          +------------+                +-------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|  ngx_pool_t   | memory block |          |                             |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------+-----+--------------+          |                             |
+&lt;&#x2F;span&gt;&lt;span&gt;          |                               v                             v
+&lt;&#x2F;span&gt;&lt;span&gt;          |                               +----------------+            +----------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;          |                               |ngx_pool_large_t|            |  ngx_pool_cleanup_t  |
+&lt;&#x2F;span&gt;&lt;span&gt;          v                               +--------+-------+            +--------+------+------+
+&lt;&#x2F;span&gt;&lt;span&gt;         NULL                             | alloc  | next  |            | hander | data | next |
+&lt;&#x2F;span&gt;&lt;span&gt;                                          +--------+----+--+            +--------+------+---+--+
+&lt;&#x2F;span&gt;&lt;span&gt;                                                        |                                   |
+&lt;&#x2F;span&gt;&lt;span&gt;                                                        v                                   v
+&lt;&#x2F;span&gt;&lt;span&gt;                                                       NULL                                NULL
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;结合这个图应该能理解 Nginx 的内存池的设计。区分大小内存块的主要依据是分配内存大小，在内存池分配的函数实现当中，我们定义了一个宏 &lt;code&gt;NGX_MAX_ALLOC_FROM_POOL&lt;&#x2F;code&gt; 来设置内存池的小块内存最大的大小，当然这个大小也由我们分配内存池的&lt;code&gt;size&lt;&#x2F;code&gt;（去除掉&lt;code&gt;ngx_pool_t&lt;&#x2F;code&gt;本身大小）共同决定，在两者中取最小值。若要求分配的内存大于该最小值，则使用大块内存分配，创建大块内存结构，然后使用操作系统的 &lt;code&gt;malloc&lt;&#x2F;code&gt; 进行大块内存分配并将 &lt;code&gt;alloc&lt;&#x2F;code&gt; 指针指向该内存地址。若要求分配的内存小于该内存，且该内存池里面的 &lt;code&gt;unused&lt;&#x2F;code&gt; 内存大小比 &lt;code&gt;size&lt;&#x2F;code&gt; 大，直接在该内存池里分配，并减少 &lt;code&gt;unused&lt;&#x2F;code&gt; 的大小。若要求分配的内存小于该内存，且该内存池里面的 &lt;code&gt;unused&lt;&#x2F;code&gt; 内存大小比 &lt;code&gt;size&lt;&#x2F;code&gt; 小，我们考虑再次开辟一个相同的内存池，并将上一个内存池里面的 &lt;code&gt;next&lt;&#x2F;code&gt; 指针指向该内存池，同时上一个内存池里面的 &lt;code&gt;failed&lt;&#x2F;code&gt; 变量加一，表示内存分配失败一次，然后我们会再第二个开辟的内存池里面分配我们需要的小内存。&lt;code&gt;Nginx&lt;&#x2F;code&gt; 这里还有一个比较粗暴一点的设定，就是在我们同一个内存池中的内存分配失败次数 &lt;code&gt;failed&lt;&#x2F;code&gt; 失败次数超过四次以后，该内存池中的 &lt;code&gt;current&lt;&#x2F;code&gt; 指针会指向下一块内存池子，这个设定是为了减少内存分配寻找的时间成本，当然，这在某种程度上也会造成内存碎片化的问题。在 Nginx 的内存池中，内存池这个概念并不是单单指一个 &lt;code&gt;ngx_pool_t&lt;&#x2F;code&gt; 这个结构，其实上他是指 &lt;code&gt;ngx_pool_t&lt;&#x2F;code&gt; 组成的一个链表，为了组成这个链表，我们在新增链表内的内存池的时候，其实上浪费了新增对象的一个 &lt;code&gt;ngx_pool_t&lt;&#x2F;code&gt; 的空间(后续新增的对象中某些数据结构的成员为&lt;code&gt;NULL&lt;&#x2F;code&gt;)，这个浪费比例于我们内存的大小成反比关系。上面几种情况的取舍问题，其实也是计算机系统在很多设计上的考虑，在很多的子系统、模块当中，对不同的场景就会有不同的最优解。&lt;&#x2F;p&gt;
+&lt;p&gt;关于内存池的释放，直接看数据结构图，我们在该内存池的生命周期结束的时候，根据这个类链表结构的设计，我们的 &lt;code&gt;free&lt;&#x2F;code&gt; 就很简单了，其实就是跟着链表的指向一个一个的进行 &lt;code&gt;free&lt;&#x2F;code&gt;, 在&lt;code&gt;ngx_pool_cleanup_t&lt;&#x2F;code&gt; 中，我们同时也可以对内存池上外挂的文件调用设计的 &lt;code&gt;handler&lt;&#x2F;code&gt;进行清理。这样就做到了内存池的统一释放，非常契合 Nginx 的 Web Server 场景。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;3-ngx-slab-c-h&quot;&gt;3.ngx_slab.c(h)&lt;&#x2F;h3&gt;
+&lt;p&gt;下面介绍一下 Nginx 中基于 &lt;code&gt;slab&lt;&#x2F;code&gt; 的内存分配机制。&lt;code&gt;slab&lt;&#x2F;code&gt; 主要用在 Linux 内核的内存管理子系统，主要用于小内存的分配。其工作是针对一些经常分配并释放的对象，如进程描述符等，基本上都是 Linux 内核里面的一些数据结构，如果直接采用伙伴系统来进行分配和释放，不仅会造成大量的内存碎片，而且处理速度也太慢。slab主要是以对象为单位来分配内存，简单来说分配这一类的内存，这类内存会组成一个列表，在内存使用完之后也不会释放到 &lt;code&gt;buddy system&lt;&#x2F;code&gt;，依旧是放在列表当中，等待下一次的相同内存分配请求，这样就起到了缓存的效果，直接提升了内存的分配效率，具体的信息可以参考 &lt;code&gt;Linux Procfs&lt;&#x2F;code&gt; 中的 &lt;code&gt;&#x2F;proc&#x2F;slabinfo&lt;&#x2F;code&gt; 信息。
+许多场景下，不同的Nginx请求间必须交互后才能执行下去，例如限制一个客户端能够并发访问的请求数。可是Nginx被设计为一个多进程的程序，服务更健壮的另一面就是，Nginx请求可能是分布在不同的进程上的，当进程间需要互相配合才能完成请求的处理时，进程间通信开发困难的特点就会凸显出来。Nginx 的 Slab 内存池就是设计出来解决共享内存的分配问题的。这些共享内存区域通常是通过标准 Nginx 配置指令来创建的，比如 ssl_session_cache、proxy_cache_path、limit_req_zone、limit_conn_zone、和 upstream 的 zone 指令。&lt;&#x2F;p&gt;
+&lt;p&gt;直接看我加了注释的 &lt;code&gt;ngx_slab.h&lt;&#x2F;code&gt;&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;c&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-c &quot;&gt;&lt;code class=&quot;language-c&quot; data-lang=&quot;c&quot;&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct&lt;&#x2F;span&gt;&lt;span&gt; ngx_slab_page_s  ngx_slab_page_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 页面的描述数据结构
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;struct &lt;&#x2F;span&gt;&lt;span&gt;ngx_slab_page_s {
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;uintptr_t&lt;&#x2F;span&gt;&lt;span&gt;         slab;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_slab_page_t  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;next;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;uintptr_t&lt;&#x2F;span&gt;&lt;span&gt;         prev;
+&lt;&#x2F;span&gt;&lt;span&gt;};
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; slab 统计数据结构
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t        total;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t        used;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t        reqs;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t        fails;
+&lt;&#x2F;span&gt;&lt;span&gt;} ngx_slab_stat_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; slab 内存池的元数据结构
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;typedef struct &lt;&#x2F;span&gt;&lt;span&gt;{
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_shmtx_sh_t    lock;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t&lt;&#x2F;span&gt;&lt;span&gt;            min_size;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t&lt;&#x2F;span&gt;&lt;span&gt;            min_shift;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_slab_page_t  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;pages;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_slab_page_t  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;last;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_slab_page_t   free;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_slab_stat_t  &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;stats;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_uint_t        pfree;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char           &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;start;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char           &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;end;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    ngx_shmtx_t       mutex;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char           &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;log_ctx;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;u_char&lt;&#x2F;span&gt;&lt;span&gt;            zero;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;unsigned&lt;&#x2F;span&gt;&lt;span&gt;          log_nomem&lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;:1&lt;&#x2F;span&gt;&lt;span&gt;;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void             &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;data;
+&lt;&#x2F;span&gt;&lt;span&gt;    &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void             &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span&gt;addr;
+&lt;&#x2F;span&gt;&lt;span&gt;} ngx_slab_pool_t;
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; slab 内存池元数据大小的初始化
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_sizes_init&lt;&#x2F;span&gt;&lt;span&gt;(&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; slab 内存池初始化
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_init&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 内存分配
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_alloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_alloc_locked&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_calloc&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_calloc_locked&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#e7e7e7;&quot;&gt;size_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;size&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#707180;&quot;&gt;&#x2F;&#x2F; 内存释放
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_free&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;p&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a2ba43;&quot;&gt;ngx_slab_free_locked&lt;&#x2F;span&gt;&lt;span&gt;(ngx_slab_pool_t &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;pool&lt;&#x2F;span&gt;&lt;span&gt;, &lt;&#x2F;span&gt;&lt;span style=&quot;color:#a3cbe3;&quot;&gt;void &lt;&#x2F;span&gt;&lt;span style=&quot;color:#db7c6d;&quot;&gt;*&lt;&#x2F;span&gt;&lt;span style=&quot;color:#ffffff;&quot;&gt;p&lt;&#x2F;span&gt;&lt;span&gt;);
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;然后画出数据结构图&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;+---------------------+---------------------------------------------------------&amp;gt;+------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |         X                                                |    lock          |
+&lt;&#x2F;span&gt;&lt;span&gt;|   ngx_slab_pool_t   |                                                          +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |                                                          |     min_size     |
+&lt;&#x2F;span&gt;&lt;span&gt;+---+----------------------------------------------------------------+           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_page_t |Min Slab Page                                 |           |    min_shift     |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+     +                                        |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| s |                 |     |               +------------------------------------+    pages         |
+&lt;&#x2F;span&gt;&lt;span&gt;| l |    + + + + +    |     |               |                        |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| o |    | | | | |    |     |to             |        +---------------------------+    last          |
+&lt;&#x2F;span&gt;&lt;span&gt;| t |    v v v v v    |     |               |        |               |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| s |                 |     |               |        |               |           |     free         |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+     v               |        |               |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_page_t |Max Slab Page     +---------------------------------------+     status       |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------------------+  &amp;lt;---------------+  |        |               |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_stat_t |Min Slab Page        |        |               |           |     pfree        |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+     +               |        |               |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| s |                 |     |               |        |  +-------------------------|    start        |
+&lt;&#x2F;span&gt;&lt;span&gt;| t |    + + + + +    |     |               |        |  |            |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| a |    | | | | |    |     |to             |        |  |  +---------------------+     end          |
+&lt;&#x2F;span&gt;&lt;span&gt;| t |    v v v v v    |     |               |        |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| s |                 |     |               |        |  |  |         |           |     mutex        |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+     v               |        |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_stat_t |Max Slab Page        |        |  |  |         |           |     log_ctx      |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------------------+   &amp;lt;-----------------+        |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_page_t +--+                           |  |  |         |           |     zero         |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+  |                           |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| p |                 |  |                           |  |  |         |           |     log_nomen    |
+&lt;&#x2F;span&gt;&lt;span&gt;| a |    + + + + +    |  |                           |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| g |    | | | | |    |  | pages number slab_page_t  |  |  |         |           |     data         |
+&lt;&#x2F;span&gt;&lt;span&gt;| e |    v v v v v    |  |                           |  |  |         |           +------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;| s |                 |  |                           |  |  |         |           |     addr         |
+&lt;&#x2F;span&gt;&lt;span&gt;|   +-----------------+  |                           |  |  |         +----------&amp;gt;+------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;|   | ngx_slab_page_t +--+                           |  |  |
+&lt;&#x2F;span&gt;&lt;span&gt;+---+-----------------+    &amp;lt;-------------------------+  |  |
+&lt;&#x2F;span&gt;&lt;span&gt;|  alignment memory   |                                 |  |
+&lt;&#x2F;span&gt;&lt;span&gt;+------------------------+  &amp;lt;---------------------------+  |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|     used memory     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |pages number real page           |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|                     |  |                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;+------------------------+                                 |
+&lt;&#x2F;span&gt;&lt;span&gt;|     unused memory   |                                    |
+&lt;&#x2F;span&gt;&lt;span&gt;+---------------------+ &amp;lt;----------------------------------+
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;分析一下数据结构吧，这几个主要得结构都是紧紧埃在一起的，主要分为两部分，一部分是元数据区，实际内存分配区域。实际内存分配区域就是途中 &lt;code&gt;used memory&lt;&#x2F;code&gt; 和 &lt;code&gt;unused memory&lt;&#x2F;code&gt;一起的区域，元数据区域有四大块： &lt;code&gt;ngx_slab_pool_t&lt;&#x2F;code&gt; （内存池的结构），&lt;code&gt;ngx_slab_page_t&lt;&#x2F;code&gt; 组成的 &lt;code&gt;slots&lt;&#x2F;code&gt; 区域，该区域主要描述 &lt;code&gt;slab&lt;&#x2F;code&gt; 页面链表的头，大小从 8bit 的 Slab page 到 2048 Bit 的 Slab page, &lt;code&gt;ngx_slab_stat_t&lt;&#x2F;code&gt; 组成的 &lt;code&gt;stat&lt;&#x2F;code&gt; 区域，该区域是上面 Slab page 的统计信息，记录的是 上面 &lt;code&gt;slots&lt;&#x2F;code&gt; 里面的每个 Slab page 分配情况。&lt;code&gt;ngx_slab_page_t&lt;&#x2F;code&gt; 组成的真实内存区域的元信息，意义对应下面 &lt;code&gt;used memory&lt;&#x2F;code&gt; 里面的真实内存页面。
+在初始状态，所有的内存都挂在了 &lt;code&gt;ngx_slab_pool_t&lt;&#x2F;code&gt; 下面的 &lt;code&gt;free&lt;&#x2F;code&gt; 下等待进行分配。分配的大致思路就是把每个实际的内存页面都进行对应的 Slab size (也就是 slots的位置对应的位数) 8Bit 16Bit 256Bit..... 这类的内存页面进行切分内存块，然后在 &lt;code&gt;ngx_slab_page_t&lt;&#x2F;code&gt;数据结构中的 slab 成员上建立 &lt;code&gt;bitmap&lt;&#x2F;code&gt; （如果实在放不下去就会到相应的实际内存页的前几个chunk建立bitmap）标记该页面内存的分配情况，同时用链表把对应的内存块连接起来，这样就可以快速的对半满的内存块进行内存分配 。在内存回收的情况下，只用在 &lt;code&gt;bitmap&lt;&#x2F;code&gt; 里面把相应的位置为 0,如果判断这个页面已经全部空闲了就会直接脱离该链表被扔进 &lt;code&gt;free&lt;&#x2F;code&gt; 链表里面。这样就保证了共享内存的高效分配。
+在 Slab 共享内存分配中，为了保证高效的内存分配操作，大量使用了位运算的方式极致的压榨性能，同时，和 Linux 内核的 Slab 内存管理不同， &lt;code&gt;ngx_slab&lt;&#x2F;code&gt; 在处理内存分配的时候，分配到了非标准大小内存 (比如 129Bit = 128 Bit + 1Bit) 内存的时候， 会直接分配 256 Bit 的内存页面，这样牺牲了内存空间的效率，换来了时间上的高效利用，同时也尽量的减少了内存的碎片化。
+Nginx 的共享内存使用加强版的 Slab allocator (至少从上面的概念中严格定义的 话) 进行管理。它将 slab allocator 和 buddy memory system 里的分级相结合，基本上实现了一个使用自定义内存空间 (Nginx 的共享内存) 的通用内存管理器。&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;3-shi-yong-ebpf-dui-nginx-nei-cun-guan-li-de-fen-xi&quot;&gt;3.  使用 ebpf 对 Nginx 内存管理的分析&lt;&#x2F;h2&gt;
+&lt;p&gt;todo&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;4-nginx-nei-cun-guan-li-xiang-guan-de-cha-jian&quot;&gt;4.  Nginx 内存管理相关的插件&lt;&#x2F;h2&gt;
+&lt;p&gt;Tengine 里有两个内存分配信息相关的插件：&lt;code&gt;ngx_debug_pool&lt;&#x2F;code&gt; 和 &lt;code&gt;ngx_slab_stat&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;1-ngx-debug-pool&quot;&gt;1. ngx_debug_pool&lt;&#x2F;h3&gt;
+&lt;p&gt;该模块可以提供 Nginx 内存池占用内存的状态信息。这里 Tengine 对 &lt;code&gt;ngx_palloc.c(h)&lt;&#x2F;code&gt; 进行了 patch, 直接在 ngx_pool_t 里面加上了 &lt;code&gt;stat&lt;&#x2F;code&gt; 成员，然后又设置了一个 &lt;code&gt;ngx_pool_stats&lt;&#x2F;code&gt; 全局变量，这样就可以直接获取 &lt;code&gt;ngx_pool_t&lt;&#x2F;code&gt; 内存池的信息了。
+从 Tengine 源码中提取模块，进行编译&lt;&#x2F;p&gt;
+&lt;pre data-lang=&quot;shell&quot; style=&quot;background-color:#31333d;color:#ffffffc4;&quot; class=&quot;language-shell &quot;&gt;&lt;code class=&quot;language-shell&quot; data-lang=&quot;shell&quot;&gt;&lt;span&gt;.&#x2F;configure --add-module=.&#x2F;modules&#x2F;ngx_debug_pool
+&lt;&#x2F;span&gt;&lt;span&gt;make &amp;amp;&amp;amp; make install
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;添加进 &lt;code&gt;nginx.conf&lt;&#x2F;code&gt; 里&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;location = &#x2F;debug_pool {
+&lt;&#x2F;span&gt;&lt;span&gt;    debug_pool;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;然后我们看见效果&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;$ curl 127.0.0.1&#x2F;debug_pool
+&lt;&#x2F;span&gt;&lt;span&gt;pid:58413
+&lt;&#x2F;span&gt;&lt;span&gt;size:        8192 num:           5 cnum:           1 lnum:           0 ngx_http_alloc_request
+&lt;&#x2F;span&gt;&lt;span&gt;size:      438830 num:           2 cnum:           1 lnum:          18 ngx_init_cycle
+&lt;&#x2F;span&gt;&lt;span&gt;size:           0 num:           1 cnum:           0 lnum:           0 main
+&lt;&#x2F;span&gt;&lt;span&gt;size:        1536 num:           5 cnum:           1 lnum:           9 ngx_event_accept
+&lt;&#x2F;span&gt;&lt;span&gt;size:       438KB num:          13 cnum:           3 lnum:          27 [SUMMARY]
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;除了最后一行的每一行的输出内容都有相同的格式，如下：&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;&amp;quot;__size__: %12u __num__: %12u __cnum__: %12u __lnum__: %12u __\&amp;lt;function name\&amp;gt;__&amp;quot;
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;&lt;code&gt;size&lt;&#x2F;code&gt;: 当前内存池占用的内存
+&lt;code&gt;num&lt;&#x2F;code&gt;: 内存池创建的个数（包括当前正在使用的内存池数量和已经被释放的内存池数量）
+&lt;code&gt;cnum&lt;&#x2F;code&gt;: 当前正在使用的内存池数量
+&lt;code&gt;lnum&lt;&#x2F;code&gt;: 该类内存池调用ngx_palloc_large()次数
+&lt;code&gt;funcion name&lt;&#x2F;code&gt;: 创建该内存池的nginx C函数的函数名&lt;&#x2F;p&gt;
+&lt;p&gt;通过创建该内存池的函数的函数名，我们可以知道各个模块的内存使用情况
+例如：&lt;&#x2F;p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;code&gt;ngx_http_create_request&lt;&#x2F;code&gt;创建的内存池用于 HTTP 请求。因为大多数模块直接从该内存池上分配内存，所以很难区分具体哪个模块使用了内存。
+&lt;code&gt;ngx_event_accept&lt;&#x2F;code&gt;创建的内存池用于 TCP 连接。
+&lt;code&gt;ngx_init_cycle&lt;&#x2F;code&gt;创建的内存池用于解析 Nginx 的配置和保存其他全局数据结构。&lt;code&gt;ngx_http_lua_init_worker&lt;&#x2F;code&gt;用于指令&lt;code&gt;init_worker_by_lua&lt;&#x2F;code&gt;。&lt;&#x2F;p&gt;
+&lt;&#x2F;blockquote&gt;
+&lt;h3 id=&quot;2-ngx-slab-stat&quot;&gt;2. ngx_slab_stat&lt;&#x2F;h3&gt;
+&lt;p&gt;该模块可以提供 Slab 共享内存的分配信息，其实在 Nginx 官方源码里甚至为了这个需求改进了统计代码，但是统计功能的模块 &lt;a href=&quot;http:&#x2F;&#x2F;nginx.org&#x2F;en&#x2F;docs&#x2F;http&#x2F;ngx_http_api_module.html&quot;&gt;ngx_http_api_module&lt;&#x2F;a&gt; 只有 Nginx Plus 商业版本才会有。 所以现在采用 Tengine 里面的模块进行统计。
+注意： 该模块必须在NGINX版本高于 1.13.x上使用，如果需要在低版本上使用需要另外进行 patch,主要是因为 &lt;code&gt;ngx_slab&lt;&#x2F;code&gt; 在这个版本上有一个关于 &lt;code&gt;ngx_slab_pool_t&lt;&#x2F;code&gt; 中 &lt;code&gt;stat: ngx_slab_stat_t&lt;&#x2F;code&gt; 成员的变更，有了这个成员我们才能快乐的做 slab 内存分配统计。 &lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;.&#x2F;configure --add-module=&#x2F;path&#x2F;to&#x2F;ngx_slab_stat
+&lt;&#x2F;span&gt;&lt;span&gt;make &amp;amp;&amp;amp; make install
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;添加进 &lt;code&gt;nginx.conf&lt;&#x2F;code&gt; 里&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;limit_req_zone $binary_remote_addr zone=ttlsa_com:10m rate=1r&#x2F;s;
+&lt;&#x2F;span&gt;&lt;span&gt;location &#x2F; {
+&lt;&#x2F;span&gt;&lt;span&gt;    root   &#x2F;usr&#x2F;share&#x2F;nginx&#x2F;html;
+&lt;&#x2F;span&gt;&lt;span&gt;    index  index.html index.htm;
+&lt;&#x2F;span&gt;&lt;span&gt;    limit_req zone=ttlsa_com burst=5;
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;span&gt;
+&lt;&#x2F;span&gt;&lt;span&gt;location &#x2F;slab_stat 
+&lt;&#x2F;span&gt;&lt;span&gt;{                                    
+&lt;&#x2F;span&gt;&lt;span&gt;    slab_stat;                                                             
+&lt;&#x2F;span&gt;&lt;span&gt;}
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;这里我用 &lt;code&gt;limit_req_zone&lt;&#x2F;code&gt; 来创建共享内存，这样好让我们能看到结果&lt;&#x2F;p&gt;
+&lt;pre style=&quot;background-color:#31333d;color:#ffffffc4;&quot;&gt;&lt;code&gt;&lt;span&gt;╰─$ curl 127.0.0.1&#x2F;slab_stat
+&lt;&#x2F;span&gt;&lt;span&gt;* shared memory: ttlsa_com
+&lt;&#x2F;span&gt;&lt;span&gt;total:       10240(KB) free:       10168(KB) size:           4(KB)
+&lt;&#x2F;span&gt;&lt;span&gt;pages:       10168(KB) start:00007F649CFDF000 end:00007F649D9CF000
+&lt;&#x2F;span&gt;&lt;span&gt;slot:           8(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:          16(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:          32(Bytes) total:         127 used:           1 reqs:           1 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:          64(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:         128(Bytes) total:          32 used:           2 reqs:           2 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:         256(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:         512(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:        1024(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;span&gt;slot:        2048(Bytes) total:           0 used:           0 reqs:           0 fails:           0
+&lt;&#x2F;span&gt;&lt;&#x2F;code&gt;&lt;&#x2F;pre&gt;
+&lt;p&gt;数据非常清晰，我就不需要过多解释了&lt;&#x2F;p&gt;
+&lt;h2 id=&quot;5-nginx-nei-cun-guan-li-de-you-hua&quot;&gt;5.  Nginx 内存管理的优化&lt;&#x2F;h2&gt;
+&lt;p&gt;Nginx 在内存管理上的优化和其他的用户态程序一样，在 &lt;code&gt;malloc&lt;&#x2F;code&gt; 的不同实现上的有性能优化的点。这是一个很大的议题了，中文圈里有很多文章让使用 &lt;code&gt;tcmalloc&lt;&#x2F;code&gt; &lt;code&gt;jemalloc&lt;&#x2F;code&gt; &lt;code&gt;mimmalloc&lt;&#x2F;code&gt; 这种来加速内存分配(其实在 Nginx 官方代码里甚至有支持 &lt;code&gt;gperftools&lt;&#x2F;code&gt; 也就是 &lt;code&gt;tcmalloc&lt;&#x2F;code&gt;)，但是就我个人认为，理论上 &lt;code&gt;ptmalloc&lt;&#x2F;code&gt; 是符合 Nginx 内存分配周期短这种场景的，在多线程环境上的优化的优势在 Nginx 也不是很大,更何况 nginx 自己的内存分配器也在一定程度上减小了内存碎片化。可能这个我会设计一个 &lt;code&gt;benchmark&lt;&#x2F;code&gt; 场景来对比各个 &lt;code&gt;malloc&lt;&#x2F;code&gt; 在 Nginx 上的效果 (todolist）。&lt;&#x2F;p&gt;
+&lt;p&gt;当然也还有一些内核层面上的优化策略， 比如尽量避免 NUMA 计算机架构体系带来的跨 node 级别内存访问带来的高延迟，稳妥的建议是避免使用 NUMA 多 node 架构的服务器，当然，你自己去优化用户态的内存分配也是可以的。 还有一个就是 Linux 内核的透明大页的特性, 可以针对 Nginx 的使用场景，将 &lt;code&gt;transparent_hugepage&lt;&#x2F;code&gt; 的选项调为 &lt;code&gt;madvise&lt;&#x2F;code&gt; ，根据内存分配的建议来对已分配内存进行透明大页转换。&lt;&#x2F;p&gt;
+&lt;h3 id=&quot;can-kao-lian-jie&quot;&gt;参考链接&lt;&#x2F;h3&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;ivanzz1001.github.io&#x2F;records&#x2F;post&#x2F;nginx&#x2F;2018&#x2F;12&#x2F;07&#x2F;nginx-source_part61_2&quot;&gt;core&#x2F;ngx_slab.c源文件分析&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;book.douban.com&#x2F;subject&#x2F;26745255&#x2F;&quot;&gt;深入理解Nginx（第2版）&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;www.slideshare.net&#x2F;ennael&#x2F;kernel-recipes-2017-20-years-of-linux-virtual-memory-andrea-arcangeli&quot;&gt;20 years of Linux Virtual Memory&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;li&gt;&lt;a href=&quot;https:&#x2F;&#x2F;dropbox.tech&#x2F;infrastructure&#x2F;optimizing-web-servers-for-high-throughput-and-low-latency&quot;&gt;Optimizing web servers for high throughput and low latency&lt;&#x2F;a&gt;&lt;&#x2F;li&gt;
+&lt;&#x2F;ol&gt;
+</content>
+        
+    </entry>
+    <entry xml:lang="en">
+        <title>Hello world</title>
+        <published>2020-01-26T00:00:00+00:00</published>
+        <updated>2020-01-26T00:00:00+00:00</updated>
+        <author>
+          <name>Unknown</name>
+        </author>
+        <link rel="alternate" href="https://blog.stdin.in/blog/hello-world/" type="text/html"/>
+        <id>https://blog.stdin.in/blog/hello-world/</id>
+        
+        <content type="html">&lt;p&gt;Hello world!&lt;&#x2F;p&gt;
+</content>
+        
+    </entry>
+</feed>

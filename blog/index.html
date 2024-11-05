@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="owl&amp;#x27;s Blog feedId:66419108743862272+userId:56722589749105664">
+    <title>owl&#x27;s Blog | Blog</title>
+    
+    <link rel="stylesheet" href="https://blog.stdin.in/style.css?h=8b0c8e67741cde488629">
+    
+</head>
+<body>
+    
+<header class="space">
+    <a href="https:&#x2F;&#x2F;blog.stdin.in">&LeftArrow; Home</a>
+</header>
+
+    
+<main>
+    <h1>Blog</h1>
+    
+    
+    <h2>2023</h2>
+    <ul>
+        
+        <li><a href="https:&#x2F;&#x2F;blog.stdin.in&#x2F;blog&#x2F;how-to-use-apple-map-in-transparent-proxy&#x2F;">如何在透明代理网络环境下得到正常的苹果地图</a></li>
+        
+        <li><a href="https:&#x2F;&#x2F;blog.stdin.in&#x2F;blog&#x2F;nginx-network-io-module&#x2F;">Nginx Network IO Module</a></li>
+        
+    </ul>
+    
+    <h2>2020</h2>
+    <ul>
+        
+        <li><a href="https:&#x2F;&#x2F;blog.stdin.in&#x2F;blog&#x2F;nginx-memory-management&#x2F;">Nginx Memory Management</a></li>
+        
+        <li><a href="https:&#x2F;&#x2F;blog.stdin.in&#x2F;blog&#x2F;hello-world&#x2F;">Hello world</a></li>
+        
+    </ul>
+    
+    
+</main>
+
+    <div class="dark-mode-buttons">
+        <button class="dark-mode-button" id="dark-mode-on"><img src="https://blog.stdin.in/dark_mode.svg" width="24" height="24" alt="Dark mode" aria-label="dark mode toggle" title="Dark mode"></button>
+        <button class="dark-mode-button" id="dark-mode-off"><img src="https://blog.stdin.in/light_mode.svg" width="24" height="24" alt="Light mode" aria-label="light mode toggle" title="Light mode"></button>
+    </div>
+    <script>
+        const cls = document.body.classList;
+        const getSessionTheme = sessionStorage.getItem("theme");
+        if (getSessionTheme === "dark") {
+            cls.toggle("dark-mode", true);
+        } else if (getSessionTheme === "light") {
+            cls.toggle("dark-mode", false);
+        } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            cls.toggle("dark-mode", true);
+        }
+
+        document.getElementById("dark-mode-on").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", true);
+            sessionStorage.setItem("theme", "dark");
+        });
+        document.getElementById("dark-mode-off").addEventListener("click", function(e) {
+            cls.toggle("dark-mode", false);
+            sessionStorage.setItem("theme", "light");
+        });
+    </script>
+    <noscript>
+        <style>
+            .dark-mode-buttons {
+                display: none;
+            }
+        </style>
+    </noscript>
+<!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "0e8ea8c607c14e63990ea162c2f6c93d"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>
